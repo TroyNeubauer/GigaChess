@@ -1,8 +1,29 @@
+use std::marker::PhantomData;
 
-struct GeneralBoard<Piece, const SIZE: usize> {
-	board: [[Piece; SIZE]],
+pub trait GenericBoard<PieceType> {
+    fn is_move_legal(board_move: Move) -> bool;
+    fn legal_moves_for_piece(
 }
 
-trait Moveable {
-	
+pub struct SquarePos {
+    pos: u8,
 }
+
+pub struct Move {
+    src: SquarePos,
+    dest: SquarePos,
+}
+
+
+pub struct LegalMovesIterator<Piece, Board> {
+    board: Board,
+    last_move: Move,
+    piece: PhantomData<Piece>,
+}
+
+pub trait GenericPiece {
+    fn legal_moves_it<Piece, Board>(board: &Board) -> LegalMovesIterator<Piece, Board>;
+}
+
+
+
