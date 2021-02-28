@@ -27,7 +27,10 @@ impl GenericBoard for ChessBoard {
     type PieceType = ChessPiece;
     type ColorType = DefaultColorScheme;
     type RawMoveIteratorType = RawMoveIterator;
-    type PosType = DefaultSquarePos<ChessBoard, u8, ChessFile, ChessRank>;
+    type StorageType = u8;
+    type FileType = ChessFile;
+    type RankType = ChessRank;
+    type PosType = DefaultSquarePos<ChessBoard>;
 
     fn side_len() -> u8 {
         8
@@ -62,7 +65,7 @@ impl GenericBoard for ChessBoard {
         result
     }
 
-    fn raw_square_iter(&self) -> SquareIter<Self::PosType> {
+    fn raw_square_iter(&self) -> SquareIter<DefaultSquarePos<ChessBoard>> {
         let max_size = (ChessBoard::side_len() * ChessBoard::side_len()) as u8;
         SquareIter::new(max_size, 0)
     }
@@ -118,7 +121,37 @@ pub enum ChessFile {
     H,
 }
 
-impl GenericFile for ChessFile {}
+impl GenericFile<<ChessBoard as GenericBoard>::StorageType> for ChessFile {
+    fn to_storage(self) -> u8 {
+        match self {
+            ChessFile::A => 0,
+            ChessFile::B => 1,
+            ChessFile::C => 2,
+            ChessFile::D => 3,
+            ChessFile::E => 4,
+            ChessFile::F => 5,
+            ChessFile::G => 6,
+            ChessFile::H => 7,
+            _ => unreachable!(),
+        }
+    }
+
+    fn from_storage(input: <ChessBoard as GenericBoard>::StorageType) -> ChessFile {
+        match input {
+            0 => ChessFile::A,
+            1 => ChessFile::B,
+            2 => ChessFile::C,
+            3 => ChessFile::D,
+            4 => ChessFile::E,
+            5 => ChessFile::F,
+            6 => ChessFile::G,
+            7 => ChessFile::H,
+            _ => unreachable!(),
+        }
+ 
+
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ChessRank {
@@ -132,7 +165,36 @@ pub enum ChessRank {
     R8,
 }
 
-impl GenericRank for ChessRank {}
+impl GenericRank<<ChessBoard as GenericBoard>::StorageType> for ChessRank {
+    fn to_storage(self) -> u8 {
+        match self {
+            ChessRank::R1 => 0,
+            ChessRank::R2 => 1,
+            ChessRank::R3 => 2,
+            ChessRank::R4 => 3,
+            ChessRank::R5 => 4,
+            ChessRank::R6 => 5,
+            ChessRank::R7 => 6,
+            ChessRank::R8 => 7,
+            _ => unreachable!(),
+        }
+    }
+
+    fn from_storage(input: <ChessBoard as GenericBoard>::StorageType) -> ChessRank {
+        match input {
+            0 => ChessRank::R1,
+            1 => ChessRank::R2,
+            2 => ChessRank::R3,
+            3 => ChessRank::R4,
+            4 => ChessRank::R5,
+            5 => ChessRank::R6,
+            6 => ChessRank::R7,
+            7 => ChessRank::R8,
+            _ => unreachable!(),
+        }
+ 
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -143,7 +205,7 @@ mod test {
         let mut board: ChessBoard = ChessBoard::new();
         let empty_square = RawSquare::<ChessPiece, DefaultColorScheme>::empty();
 
-        assert_eq!(board.get(DefaultSquarePos::new(1, 1)), &empty_square);
+        assert_eq!(board.get(<ChessBoard as GenericBoard>::PosType::new(1, 1)), &empty_square);
         assert_eq!(
             board.get(ChessBoard::  ::<ChessBoard>::new(0, 0)),
             &empty_square

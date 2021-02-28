@@ -1,15 +1,21 @@
-use std::marker::PhantomData;
+use std::ops::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RawSquare<PieceType, ColorType> {
     pub data: Option<(PieceType, ColorType)>,
 }
 
-pub trait GenericRank: Copy + Clone + PartialEq + Eq {}
+pub trait GenericRank<StorageType: GenericStorage>: Copy + Clone + PartialEq + Eq {
+    fn to_storage(self) -> StorageType;
+    fn from_storage(input: StorageType) -> Self;
+}
 
-pub trait GenericFile: Copy + Clone + PartialEq + Eq {}
+pub trait GenericFile<StorageType: GenericStorage>: Copy + Clone + PartialEq + Eq {
+    fn to_storage(self) -> StorageType;
+    fn from_storage(input: StorageType) -> Self;
+}
 
-pub trait GenericStorage: Copy + Clone + PartialEq + Eq + PartialOrd + Ord {}
+pub trait GenericStorage: Copy + Clone + PartialEq + Eq + PartialOrd + Ord + Add + AddAssign + Mul + Div + Rem {}
 
 impl GenericStorage for u8 {}
 
@@ -51,30 +57,27 @@ impl GenericColor for DefaultColorScheme {}
 
 #[derive(new)]
 pub struct SquareIter<PosType: SquarePos> {
-    current: PosType::StorageType,
-    max_size: PosType::StorageType,
+    current: <PosType as SquarePos>::StorageType,
+    max_size: <PosType as SquarePos>::StorageType,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct DefaultSquarePos<
+pub struct DefaultSquarePos<BoardType: GenericBoard>
+where
     BoardType: GenericBoard,
-    StorageType: GenericStorage,
-    FileType: GenericFile,
-    RankType: GenericRank,
-> {
-    pos: StorageType,
-    _file: PhantomData<FileType>,
-    _rank: PhantomData<RankType>,
-    _board: PhantomData<BoardType>,
+{
+    pos: BoardType::StorageType,
 }
 
 pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq {
     type PieceType: GenericPiece;
     type ColorType: GenericColor;
-    type PosType: SquarePos;
+    type StorageType: GenericStorage;
+    type FileType: GenericFile<Self::StorageType>;
+    type RankType: GenericRank<Self::StorageType>;
     type RawMoveIteratorType: Iterator<Item = Move<Self>>;
 
-    fn side_len() -> <<Self as GenericBoard>::PosType as SquarePos>::StorageType;
+    fn side_len() -> Self::StorageType;
     ///Creates an empty board
     fn new() -> Self;
 
@@ -106,49 +109,40 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq {
     ) -> RawSquare<Self::PieceType, Self::ColorType>;
 }
 
-impl<BoardType, StorageType, FileType, RankType> SquarePos
-    for DefaultSquarePos<BoardType, StorageType, FileType, RankType>
+impl<BoardType> SquarePos for DefaultSquarePos<BoardType>
 where
     BoardType: GenericBoard,
-    StorageType: GenericStorage,
-    FileType: GenericFile,
-    RankType: GenericRank,
-    BoardType::PosType: SquarePos,
     <BoardType::PosType as SquarePos>::StorageType: GenericStorage,
-    <BoardType::PosType as SquarePos>::FileType: GenericFile,
-    <BoardType::PosType as SquarePos>::RankType: GenericRank,
 {
-    type FileType = FileType;
-    type RankType = RankType;
-    type StorageType = StorageType;
+    type FileType = BoardType::FileType;
+    type RankType = BoardType::RankType;
+    type StorageType = BoardType::StorageType;
     type BoardType = BoardType;
 
-    fn from_raw(pos: StorageType) -> DefaultSquarePos<BoardType, <BoardType::PosType as SquarePos>::StorageType, FileType, RankType> {
+    fn from_raw(
+        pos: Self::StorageType,
+    ) -> DefaultSquarePos<
+        BoardType,
+    > {
         DefaultSquarePos {
             pos,
-            _file: PhantomData::default(),
-            _rank: PhantomData::default(),
-            _board: PhantomData::default(),
         }
     }
 
     fn new(
-        file: FileType,
-        rank: RankType,
-    ) -> DefaultSquarePos<BoardType, StorageType, FileType, RankType> {
+        file: Self::FileType,
+        rank: Self::RankType,
+    ) -> DefaultSquarePos<BoardType> {
         DefaultSquarePos {
-            pos: file * Self::BoardType::side_len(),
-            _file: PhantomData::default(),
-            _rank: PhantomData::default(),
-            _board: PhantomData::default(),
+            pos: file.to_storage() * Self::BoardType::side_len(),
         }
     }
 
-    fn rank(&self) -> RankType {
+    fn rank(&self) -> Self::RankType {
         return self.pos % Self::BoardType::side_len();
     }
 
-    fn file(&self) -> FileType {
+    fn file(&self) -> Self::FileType {
         return self.pos / Self::BoardType::side_len();
     }
 
@@ -157,7 +151,7 @@ where
     }
 
     fn side_len() -> Self::StorageType {
-        BoardType::side_len().into()
+        BoardType::side_len()
     }
 }
 
