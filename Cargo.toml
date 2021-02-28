@@ -5,3 +5,4 @@ authors = ["Troy Neubauer <troy@null.black>"]
 edition = "2018"
 
 [dependencies]
+derive-new = "0.5"
