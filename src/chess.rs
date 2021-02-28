@@ -22,7 +22,6 @@ pub struct RawMoveIterator {
     last_move: Option<Move<ChessBoard>>,
 }
 
-
 impl GenericBoard for ChessBoard {
     type PieceType = ChessPiece;
     type ColorType = DefaultColorScheme;
@@ -30,7 +29,6 @@ impl GenericBoard for ChessBoard {
     type StorageType = u8;
     type FileType = ChessFile;
     type RankType = ChessRank;
-    type PosType = DefaultSquarePos<ChessBoard>;
 
     fn side_len() -> u8 {
         8
@@ -48,14 +46,14 @@ impl GenericBoard for ChessBoard {
         result
     }
 
-    fn raw_moves_for_piece(&self, pos: Self::PosType) -> RawMoveIterator {
+    fn raw_moves_for_piece(&self, pos: SquarePos<Self>) -> RawMoveIterator {
         RawMoveIterator {
             board: self.clone(),
             last_move: None,
         }
     }
 
-    fn get_attackers_of_square(&self, target_pos: Self::PosType) -> Vec<Self::PosType> {
+    fn get_attackers_of_square(&self, target_pos: SquarePos<Self>) -> Vec<SquarePos<Self>> {
         let mut result = Vec::new();
         for pos in self.raw_square_iter() {
             if self.is_move_legal(Move::new(pos, target_pos)) {
@@ -65,21 +63,21 @@ impl GenericBoard for ChessBoard {
         result
     }
 
-    fn raw_square_iter(&self) -> SquareIter<DefaultSquarePos<ChessBoard>> {
+    fn raw_square_iter(&self) -> SquareIter<ChessBoard> {
         let max_size = (ChessBoard::side_len() * ChessBoard::side_len()) as u8;
         SquareIter::new(max_size, 0)
     }
 
-    fn get(&self, pos: Self::PosType) -> &RawSquare<ChessPiece, DefaultColorScheme> {
+    fn get(&self, pos: SquarePos<Self>) -> &RawSquare<ChessPiece, DefaultColorScheme> {
         &self.board[pos.raw_value() as usize]
     }
 
     ///Swaps the piece on the board with the mutable piece specified
-    fn swap(&self, pos: Self::PosType, piece: &mut RawSquare<ChessPiece, DefaultColorScheme>) {}
+    fn swap(&self, pos: SquarePos<Self>, piece: &mut RawSquare<ChessPiece, DefaultColorScheme>) {}
 
     fn set(
         &mut self,
-        pos: Self::PosType,
+        pos: SquarePos<Self>,
         piece: RawSquare<ChessPiece, DefaultColorScheme>,
     ) -> RawSquare<ChessPiece, DefaultColorScheme> {
         let result = self.board[pos.raw_value() as usize];
@@ -148,8 +146,6 @@ impl GenericFile<<ChessBoard as GenericBoard>::StorageType> for ChessFile {
             7 => ChessFile::H,
             _ => unreachable!(),
         }
- 
-
     }
 }
 
@@ -192,7 +188,6 @@ impl GenericRank<<ChessBoard as GenericBoard>::StorageType> for ChessRank {
             7 => ChessRank::R8,
             _ => unreachable!(),
         }
- 
     }
 }
 
@@ -205,9 +200,12 @@ mod test {
         let mut board: ChessBoard = ChessBoard::new();
         let empty_square = RawSquare::<ChessPiece, DefaultColorScheme>::empty();
 
-        assert_eq!(board.get(<ChessBoard as GenericBoard>::PosType::new(1, 1)), &empty_square);
         assert_eq!(
-            board.get(ChessBoard::  ::<ChessBoard>::new(0, 0)),
+            board.get(SquarePos::<ChessBoard>::new(1, 1)),
+            &empty_square
+        );
+        assert_eq!(
+            board.get(SquarePos::<ChessBoard>::new(0, 0)),
             &empty_square
         );
 
@@ -219,21 +217,24 @@ mod test {
             ChessPiece::King,
             DefaultColorScheme::Black,
         );
-        let last_piece = board.set(ChessSquarePos::<ChessBoard>::new(0, 0), white_king);
+        let last_piece = board.set(SquarePos::<ChessBoard>::new(0, 0), white_king);
         assert_eq!(last_piece, empty_square);
         assert_eq!(
-            board.get(ChessSquarePos::<ChessBoard>::new(0, 0)),
+            board.get(SquarePos::<ChessBoard>::new(0, 0)),
             &white_king
         );
 
         //Start with a black king in our "hand" then swap it with the white king on E4
         let mut hand_piece = black_king;
 
-        board.swap(ChessSquarePos::<ChessBoard>::new(0, 0), &mut hand_piece);
+        board.swap(SquarePos::<ChessBoard>::new(0, 0), &mut hand_piece);
         assert_eq!(hand_piece, white_king);
         assert_eq!(
-            board.get(ChessSquarePos::<ChessBoard>::new(0, 0)),
+            board.get(SquarePos::<ChessBoard>::new(0, 0)),
             &black_king
         );
     }
 }
+
+
+

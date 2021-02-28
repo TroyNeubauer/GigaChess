@@ -15,30 +15,18 @@ pub trait GenericFile<StorageType: GenericStorage>: Copy + Clone + PartialEq + E
     fn from_storage(input: StorageType) -> Self;
 }
 
-pub trait GenericStorage: Copy + Clone + PartialEq + Eq + PartialOrd + Ord + Add + AddAssign + Mul + Div + Rem {}
+pub trait GenericStorage:
+    Copy + Clone + PartialEq + Eq + PartialOrd + Ord + Add + AddAssign + Mul + Div + Rem
+{
+}
 
 impl GenericStorage for u8 {}
 
-pub trait SquarePos: PartialEq + Eq + Copy + Clone {
-    type FileType;
-    type RankType;
-    type StorageType;
-    type BoardType;
-
-    fn from_raw(pos: Self::StorageType) -> Self;
-    fn new(file: Self::FileType, rank: Self::RankType) -> Self;
-
-    fn side_len() -> Self::StorageType;
-
-    fn rank(&self) -> Self::RankType;
-    fn file(&self) -> Self::FileType;
-    fn raw_value(&self) -> Self::StorageType;
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, new)]
-pub struct Move<BoardType: GenericBoard> {
-    pub src: BoardType::PosType,
-    pub dest: BoardType::PosType,
+pub struct Move<BoardType: GenericBoard>
+{
+    pub src: SquarePos<Self>,
+    pub dest: SquarePos<Self>,
 }
 
 pub trait GenericPiece: PartialEq + Eq + Copy {}
@@ -55,18 +43,15 @@ impl GenericColor for DefaultColorScheme {}
 
 //Beefy structs
 
-#[derive(new)]
-pub struct SquareIter<PosType: SquarePos> {
-    current: <PosType as SquarePos>::StorageType,
-    max_size: <PosType as SquarePos>::StorageType,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SquarePos<BoardType: GenericBoard> {
+    pos: BoardType::StorageType,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct DefaultSquarePos<BoardType: GenericBoard>
-where
-    BoardType: GenericBoard,
-{
-    pos: BoardType::StorageType,
+#[derive(new)]
+pub struct SquareIter<BoardType: GenericBoard> {
+    current: SquarePos<BoardType>,
+    max_size: SquarePos<BoardType>,
 }
 
 pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq {
@@ -89,74 +74,60 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq {
     ///Enumerates the 'raw' moves using the movement rules for the piece occupying the requested
     ///square. Raw means the list may contain moves that transitively are illegal because they
     ///cause checks.
-    fn raw_moves_for_piece(&self, pos: Self::PosType) -> Self::RawMoveIteratorType;
+    fn raw_moves_for_piece(&self, pos: SquarePos<Self>) -> Self::RawMoveIteratorType;
 
     ///Returns a list of the locations of the pieces that attack a square. Attacking is defined as
     ///having a legal move that moves takes a potential attacker its starting position to pos
-    fn get_attackers_of_square(&self, target_pos: Self::PosType) -> Vec<Self::PosType>;
+    fn get_attackers_of_square(&self, target_pos: SquarePos<Self>) -> Vec<SquarePos<Self>>;
 
-    fn raw_square_iter(&self) -> SquareIter<Self::PosType>;
+    fn raw_square_iter(&self) -> SquareIter<Self>;
 
-    fn get(&self, pos: Self::PosType) -> &RawSquare<Self::PieceType, Self::ColorType>;
+    fn get(&self, pos: SquarePos<Self>) -> &RawSquare<Self::PieceType, Self::ColorType>;
 
     ///Swaps the piece on the board with the mutable piece specified
-    fn swap(&self, pos: Self::PosType, piece: &mut RawSquare<Self::PieceType, Self::ColorType>);
+    fn swap(&self, pos: SquarePos<Self>, piece: &mut RawSquare<Self::PieceType, Self::ColorType>);
 
     fn set(
         &mut self,
-        pos: Self::PosType,
+        pos: SquarePos<Self>,
         piece: RawSquare<Self::PieceType, Self::ColorType>,
     ) -> RawSquare<Self::PieceType, Self::ColorType>;
 }
 
-impl<BoardType> SquarePos for DefaultSquarePos<BoardType>
+impl<BoardType> SquarePos<BoardType>
 where
     BoardType: GenericBoard,
-    <BoardType::PosType as SquarePos>::StorageType: GenericStorage,
+    BoardType::StorageType: GenericStorage,
 {
-    type FileType = BoardType::FileType;
-    type RankType = BoardType::RankType;
-    type StorageType = BoardType::StorageType;
-    type BoardType = BoardType;
-
-    fn from_raw(
-        pos: Self::StorageType,
-    ) -> DefaultSquarePos<
-        BoardType,
-    > {
-        DefaultSquarePos {
-            pos,
-        }
+    fn from_raw(pos: BoardType::StorageType) -> SquarePos<BoardType> {
+        SquarePos { pos }
     }
 
-    fn new(
-        file: Self::FileType,
-        rank: Self::RankType,
-    ) -> DefaultSquarePos<BoardType> {
-        DefaultSquarePos {
+    fn new(file: BoardType::FileType, rank: BoardType::RankType) -> SquarePos<BoardType> {
+        SquarePos {
             pos: file.to_storage() * Self::BoardType::side_len(),
         }
     }
 
-    fn rank(&self) -> Self::RankType {
+    fn rank(&self) -> BoardType::RankType {
         return self.pos % Self::BoardType::side_len();
     }
 
-    fn file(&self) -> Self::FileType {
+    fn file(&self) -> BoardType::FileType {
         return self.pos / Self::BoardType::side_len();
     }
 
-    fn raw_value(&self) -> Self::StorageType {
+    fn raw_value(&self) -> BoardType::StorageType {
         self.pos
     }
 
-    fn side_len() -> Self::StorageType {
+    fn side_len() -> BoardType::StorageType {
         BoardType::side_len()
     }
 }
 
-impl<PosType: SquarePos> Iterator for SquareIter<PosType> {
-    type Item = PosType;
+impl<BoardType: GenericBoard> Iterator for SquareIter<BoardType> {
+    type Item = SquarePos<BoardType>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current >= self.max_size {
