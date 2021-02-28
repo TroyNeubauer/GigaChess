@@ -1,3 +1,6 @@
+pub mod chess;
+pub mod chess_like;
+
 
 #[cfg(test)]
 mod tests {
