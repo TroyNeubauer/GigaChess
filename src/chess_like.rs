@@ -1,3 +1,5 @@
+use std::convert::Into;
+use std::fmt::Debug;
 use std::ops::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -5,28 +7,56 @@ pub struct RawSquare<PieceType, ColorType> {
     pub data: Option<(PieceType, ColorType)>,
 }
 
-pub trait GenericRank<StorageType: GenericStorage>: Copy + Clone + PartialEq + Eq {
+pub trait GenericRank<StorageType: GenericStorage>: Copy + Clone + Debug + PartialEq + Eq {
     fn to_storage(self) -> StorageType;
     fn from_storage(input: StorageType) -> Self;
 }
 
-pub trait GenericFile<StorageType: GenericStorage>: Copy + Clone + PartialEq + Eq {
+pub trait GenericFile<StorageType: GenericStorage>: Copy + Clone + Debug + PartialEq + Eq {
     fn to_storage(self) -> StorageType;
     fn from_storage(input: StorageType) -> Self;
 }
 
 pub trait GenericStorage:
-    Copy + Clone + PartialEq + Eq + PartialOrd + Ord + Add + AddAssign + Mul + Div + Rem
+    Copy + Clone + Debug + PartialEq + Eq + PartialOrd + Ord + Add + AddAssign + Mul + Div + Rem
 {
+    //We need to implement our own math operations to avoid fussing around with
+    //std::ops::Mul::Output in generic code
+    fn multiply(self, rhs: Self) -> Self;
+    fn divide(self, rhs: Self) -> Self;
+    fn remainder(self, rhs: Self) -> Self;
+
+    fn increment(&mut self, rhs: Self);
+
+    fn one() -> Self;
 }
 
-impl GenericStorage for u8 {}
+impl GenericStorage for u8 {
+    fn multiply(self, rhs: Self) -> Self {
+        self.mul(rhs)
+    }
+
+    fn divide(self, rhs: Self) -> Self {
+        self.div(rhs)
+    }
+
+    fn remainder(self, rhs: Self) -> Self {
+        self.rem(rhs)
+    }
+
+    fn increment(&mut self, rhs: Self) {
+        self.add_assign(rhs)
+    }
+
+    fn one() -> Self {
+        1
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, new)]
-pub struct Move<BoardType: GenericBoard>
-{
-    pub src: SquarePos<Self>,
-    pub dest: SquarePos<Self>,
+pub struct Move<BoardType: GenericBoard> {
+    pub src: SquarePos<BoardType>,
+    pub dest: SquarePos<BoardType>,
 }
 
 pub trait GenericPiece: PartialEq + Eq + Copy {}
@@ -43,15 +73,15 @@ impl GenericColor for DefaultColorScheme {}
 
 //Beefy structs
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SquarePos<BoardType: GenericBoard> {
     pos: BoardType::StorageType,
 }
 
 #[derive(new)]
 pub struct SquareIter<BoardType: GenericBoard> {
-    current: SquarePos<BoardType>,
-    max_size: SquarePos<BoardType>,
+    current: BoardType::StorageType,
+    max_size: BoardType::StorageType,
 }
 
 pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq {
@@ -99,29 +129,29 @@ where
     BoardType: GenericBoard,
     BoardType::StorageType: GenericStorage,
 {
-    fn from_raw(pos: BoardType::StorageType) -> SquarePos<BoardType> {
+    pub fn from_raw(pos: BoardType::StorageType) -> SquarePos<BoardType> {
         SquarePos { pos }
     }
 
-    fn new(file: BoardType::FileType, rank: BoardType::RankType) -> SquarePos<BoardType> {
+    pub fn new(file: BoardType::FileType, rank: BoardType::RankType) -> SquarePos<BoardType> {
         SquarePos {
-            pos: file.to_storage() * Self::BoardType::side_len(),
+            pos: BoardType::StorageType::from(file.to_storage().multiply(BoardType::side_len())),
         }
     }
 
-    fn rank(&self) -> BoardType::RankType {
-        return self.pos % Self::BoardType::side_len();
+    pub fn rank(&self) -> BoardType::RankType {
+        BoardType::RankType::from_storage(self.pos.remainder(BoardType::side_len()))
     }
 
-    fn file(&self) -> BoardType::FileType {
-        return self.pos / Self::BoardType::side_len();
+    pub fn file(&self) -> BoardType::FileType {
+        BoardType::FileType::from_storage(self.pos.divide(BoardType::side_len()))
     }
 
-    fn raw_value(&self) -> BoardType::StorageType {
+    pub fn raw_value(&self) -> BoardType::StorageType {
         self.pos
     }
 
-    fn side_len() -> BoardType::StorageType {
+    pub fn side_len() -> BoardType::StorageType {
         BoardType::side_len()
     }
 }
@@ -133,9 +163,8 @@ impl<BoardType: GenericBoard> Iterator for SquareIter<BoardType> {
         if self.current >= self.max_size {
             None
         } else {
-            let result = self.current;
-            self.current += 1;
-            Some(SquarePos::from_raw(result))
+            self.current.increment(BoardType::StorageType::one());
+            Some(SquarePos::from_raw(self.current))
         }
     }
 }

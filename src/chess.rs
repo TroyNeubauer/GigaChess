@@ -64,7 +64,7 @@ impl GenericBoard for ChessBoard {
     }
 
     fn raw_square_iter(&self) -> SquareIter<ChessBoard> {
-        let max_size = (ChessBoard::side_len() * ChessBoard::side_len()) as u8;
+        let max_size = ChessBoard::side_len() * ChessBoard::side_len();
         SquareIter::new(max_size, 0)
     }
 
@@ -130,7 +130,6 @@ impl GenericFile<<ChessBoard as GenericBoard>::StorageType> for ChessFile {
             ChessFile::F => 5,
             ChessFile::G => 6,
             ChessFile::H => 7,
-            _ => unreachable!(),
         }
     }
 
@@ -201,11 +200,11 @@ mod test {
         let empty_square = RawSquare::<ChessPiece, DefaultColorScheme>::empty();
 
         assert_eq!(
-            board.get(SquarePos::<ChessBoard>::new(1, 1)),
+            board.get(SquarePos::<ChessBoard>::new(ChessFile::B, ChessRank::R2)),
             &empty_square
         );
         assert_eq!(
-            board.get(SquarePos::<ChessBoard>::new(0, 0)),
+            board.get(SquarePos::<ChessBoard>::new(ChessFile::A, ChessRank::R1)),
             &empty_square
         );
 
@@ -217,24 +216,27 @@ mod test {
             ChessPiece::King,
             DefaultColorScheme::Black,
         );
-        let last_piece = board.set(SquarePos::<ChessBoard>::new(0, 0), white_king);
+        let last_piece = board.set(
+            SquarePos::<ChessBoard>::new(ChessFile::E, ChessRank::R4),
+            white_king,
+        );
         assert_eq!(last_piece, empty_square);
         assert_eq!(
-            board.get(SquarePos::<ChessBoard>::new(0, 0)),
+            board.get(SquarePos::<ChessBoard>::new(ChessFile::E, ChessRank::R4)),
             &white_king
         );
 
         //Start with a black king in our "hand" then swap it with the white king on E4
         let mut hand_piece = black_king;
 
-        board.swap(SquarePos::<ChessBoard>::new(0, 0), &mut hand_piece);
+        board.swap(
+            SquarePos::<ChessBoard>::new(ChessFile::E, ChessRank::R4),
+            &mut hand_piece,
+        );
         assert_eq!(hand_piece, white_king);
         assert_eq!(
-            board.get(SquarePos::<ChessBoard>::new(0, 0)),
+            board.get(SquarePos::<ChessBoard>::new(ChessFile::E, ChessRank::R4)),
             &black_king
         );
     }
 }
-
-
-
