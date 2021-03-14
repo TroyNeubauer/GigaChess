@@ -25,12 +25,12 @@ pub struct RawMoveIterator {
 impl GenericBoard for ChessBoard {
     type PieceType = ChessPiece;
     type ColorType = DefaultColorScheme;
-    type RawMoveIteratorType = RawMoveIterator;
-    type StorageType = u8;
     type FileType = ChessFile;
     type RankType = ChessRank;
+    type StorageType = u8;
+    type RawMoveIteratorType = RawMoveIterator;
 
-    fn side_len() -> u8 {
+    fn side_len() -> Self::StorageType {
         8
     }
 
@@ -40,20 +40,70 @@ impl GenericBoard for ChessBoard {
         }
     }
 
+    #[rustfmt::skip]
     fn default() -> ChessBoard {
         let mut result = ChessBoard::new();
+
+        result.set(ChessBoard::to_storage(ChessFile::A, ChessRank::R1), RawSquare::new(ChessPiece::Rook,   DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::B, ChessRank::R1), RawSquare::new(ChessPiece::Knight, DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::C, ChessRank::R1), RawSquare::new(ChessPiece::Bishop, DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::D, ChessRank::R1), RawSquare::new(ChessPiece::Queen,  DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::E, ChessRank::R1), RawSquare::new(ChessPiece::King,   DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::F, ChessRank::R1), RawSquare::new(ChessPiece::Bishop, DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::G, ChessRank::R1), RawSquare::new(ChessPiece::Knight, DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::H, ChessRank::R1), RawSquare::new(ChessPiece::Rook,   DefaultColorScheme::While));
+
+        result.set(ChessBoard::to_storage(ChessFile::A, ChessRank::R2), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::B, ChessRank::R2), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::C, ChessRank::R2), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::D, ChessRank::R2), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::E, ChessRank::R2), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::F, ChessRank::R2), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::G, ChessRank::R2), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::While));
+        result.set(ChessBoard::to_storage(ChessFile::H, ChessRank::R2), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::While));
+
+
+        result.set(ChessBoard::to_storage(ChessFile::A, ChessRank::R7), RawSquare::new(ChessPiece::Rook,   DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::B, ChessRank::R7), RawSquare::new(ChessPiece::Knight, DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::C, ChessRank::R7), RawSquare::new(ChessPiece::Bishop, DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::D, ChessRank::R7), RawSquare::new(ChessPiece::Queen,  DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::E, ChessRank::R7), RawSquare::new(ChessPiece::King,   DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::F, ChessRank::R7), RawSquare::new(ChessPiece::Bishop, DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::G, ChessRank::R7), RawSquare::new(ChessPiece::Knight, DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::H, ChessRank::R7), RawSquare::new(ChessPiece::Rook,   DefaultColorScheme::Black));
+        
+        result.set(ChessBoard::to_storage(ChessFile::A, ChessRank::R8), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::B, ChessRank::R8), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::C, ChessRank::R8), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::D, ChessRank::R8), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::E, ChessRank::R8), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::F, ChessRank::R8), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::G, ChessRank::R8), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::Black));
+        result.set(ChessBoard::to_storage(ChessFile::H, ChessRank::R8), RawSquare::new(ChessPiece::Pawn,   DefaultColorScheme::Black));
+
 
         result
     }
 
-    fn raw_moves_for_piece(&self, pos: SquarePos<Self>) -> RawMoveIterator {
+
+    fn to_storage(file: Self::FileType, rank: Self::RankType) -> u8 {
+        Self::FileType::to_storage(file) << 3 | Self::RankType::to_storage(rank)
+    }
+
+
+    fn from_storage(storage: u8) -> (Self::FileType, Self::RankType) {
+        (Self::FileType::from_storage((storage >> 3) & 0b111), Self::RankType::from_storage((storage >> 0) & 0b111))
+    }
+
+
+    fn raw_moves_for_piece(&self, pos: u8) -> RawMoveIterator {
         RawMoveIterator {
             board: self.clone(),
             last_move: None,
         }
     }
 
-    fn get_attackers_of_square(&self, target_pos: SquarePos<Self>) -> Vec<SquarePos<Self>> {
+    fn get_attackers_of_square(&self, target_pos: u8) -> Vec<u8> {
         let mut result = Vec::new();
         for pos in self.raw_square_iter() {
             if self.is_move_legal(Move::new(pos, target_pos)) {
@@ -68,20 +118,26 @@ impl GenericBoard for ChessBoard {
         SquareIter::new(max_size, 0)
     }
 
-    fn get(&self, pos: SquarePos<Self>) -> &RawSquare<ChessPiece, DefaultColorScheme> {
-        &self.board[pos.raw_value() as usize]
+    fn get(&self, pos: u8) -> &RawSquare<ChessPiece, DefaultColorScheme> {
+        &self.board[pos as usize]
     }
 
     ///Swaps the piece on the board with the mutable piece specified
-    fn swap(&self, pos: SquarePos<Self>, piece: &mut RawSquare<ChessPiece, DefaultColorScheme>) {}
+    fn swap(
+        &mut self,
+        pos: u8,
+        piece: &mut RawSquare<ChessPiece, DefaultColorScheme>,
+    ) {
+        std::mem::swap(&mut self.board[pos as usize], piece);
+    }
 
     fn set(
         &mut self,
-        pos: SquarePos<Self>,
+        pos: u8,
         piece: RawSquare<ChessPiece, DefaultColorScheme>,
     ) -> RawSquare<ChessPiece, DefaultColorScheme> {
-        let result = self.board[pos.raw_value() as usize];
-        self.board[pos.raw_value() as usize] = piece;
+        let result = self.board[pos as usize];
+        self.board[pos as usize] = piece;
         result
     }
 
@@ -97,6 +153,17 @@ impl GenericBoard for ChessBoard {
 
         false
     }
+}
+
+
+impl ToString for ChessBoard {
+    fn to_string(&self) -> String {
+
+        String::new()
+    }
+
+
+
 }
 
 impl Iterator for RawMoveIterator {
@@ -119,8 +186,11 @@ pub enum ChessFile {
     H,
 }
 
-impl GenericFile<<ChessBoard as GenericBoard>::StorageType> for ChessFile {
-    fn to_storage(self) -> u8 {
+impl GenericFile<ChessBoard> for ChessFile
+{
+    type StorageType = u8;
+
+    fn to_storage(self) -> Self::StorageType {
         match self {
             ChessFile::A => 0,
             ChessFile::B => 1,
@@ -133,7 +203,7 @@ impl GenericFile<<ChessBoard as GenericBoard>::StorageType> for ChessFile {
         }
     }
 
-    fn from_storage(input: <ChessBoard as GenericBoard>::StorageType) -> ChessFile {
+    fn from_storage(input: Self::StorageType) -> ChessFile {
         match input {
             0 => ChessFile::A,
             1 => ChessFile::B,
@@ -143,7 +213,7 @@ impl GenericFile<<ChessBoard as GenericBoard>::StorageType> for ChessFile {
             5 => ChessFile::F,
             6 => ChessFile::G,
             7 => ChessFile::H,
-            _ => unreachable!(),
+            _ => panic!(),
         }
     }
 }
@@ -160,8 +230,11 @@ pub enum ChessRank {
     R8,
 }
 
-impl GenericRank<<ChessBoard as GenericBoard>::StorageType> for ChessRank {
-    fn to_storage(self) -> u8 {
+impl GenericRank<ChessBoard> for ChessRank
+{
+    type StorageType = u8;
+
+    fn to_storage(self) -> Self::StorageType {
         match self {
             ChessRank::R1 => 0,
             ChessRank::R2 => 1,
@@ -171,11 +244,10 @@ impl GenericRank<<ChessBoard as GenericBoard>::StorageType> for ChessRank {
             ChessRank::R6 => 5,
             ChessRank::R7 => 6,
             ChessRank::R8 => 7,
-            _ => unreachable!(),
         }
     }
 
-    fn from_storage(input: <ChessBoard as GenericBoard>::StorageType) -> ChessRank {
+    fn from_storage(input: Self::StorageType) -> ChessRank {
         match input {
             0 => ChessRank::R1,
             1 => ChessRank::R2,
@@ -185,7 +257,7 @@ impl GenericRank<<ChessBoard as GenericBoard>::StorageType> for ChessRank {
             5 => ChessRank::R6,
             6 => ChessRank::R7,
             7 => ChessRank::R8,
-            _ => unreachable!(),
+            _ => panic!(),
         }
     }
 }
@@ -200,11 +272,11 @@ mod test {
         let empty_square = RawSquare::<ChessPiece, DefaultColorScheme>::empty();
 
         assert_eq!(
-            board.get(SquarePos::<ChessBoard>::new(ChessFile::B, ChessRank::R2)),
+            board.get(ChessBoard::to_storage(ChessFile::B, ChessRank::R2)),
             &empty_square
         );
         assert_eq!(
-            board.get(SquarePos::<ChessBoard>::new(ChessFile::A, ChessRank::R1)),
+            board.get(ChessBoard::to_storage(ChessFile::A, ChessRank::R1)),
             &empty_square
         );
 
@@ -217,12 +289,12 @@ mod test {
             DefaultColorScheme::Black,
         );
         let last_piece = board.set(
-            SquarePos::<ChessBoard>::new(ChessFile::E, ChessRank::R4),
+            ChessBoard::to_storage(ChessFile::E, ChessRank::R4),
             white_king,
         );
         assert_eq!(last_piece, empty_square);
         assert_eq!(
-            board.get(SquarePos::<ChessBoard>::new(ChessFile::E, ChessRank::R4)),
+            board.get(ChessBoard::to_storage(ChessFile::E, ChessRank::R4)),
             &white_king
         );
 
@@ -230,12 +302,12 @@ mod test {
         let mut hand_piece = black_king;
 
         board.swap(
-            SquarePos::<ChessBoard>::new(ChessFile::E, ChessRank::R4),
+            ChessBoard::to_storage(ChessFile::E, ChessRank::R4),
             &mut hand_piece,
         );
         assert_eq!(hand_piece, white_king);
         assert_eq!(
-            board.get(SquarePos::<ChessBoard>::new(ChessFile::E, ChessRank::R4)),
+            board.get(ChessBoard::to_storage(ChessFile::E, ChessRank::R4)),
             &black_king
         );
     }

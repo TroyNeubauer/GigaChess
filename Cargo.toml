@@ -6,3 +6,5 @@ edition = "2018"
 
 [dependencies]
 derive-new = "0.5"
+num-traits = "0.2.14"
+

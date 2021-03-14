@@ -1,62 +1,41 @@
-use std::convert::Into;
 use std::fmt::Debug;
-use std::ops::*;
+use std::string::ToString;
+use num_traits::Zero;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RawSquare<PieceType, ColorType> {
     pub data: Option<(PieceType, ColorType)>,
 }
 
-pub trait GenericRank<StorageType: GenericStorage>: Copy + Clone + Debug + PartialEq + Eq {
-    fn to_storage(self) -> StorageType;
-    fn from_storage(input: StorageType) -> Self;
-}
+//pub type StorageType = u32;
 
-pub trait GenericFile<StorageType: GenericStorage>: Copy + Clone + Debug + PartialEq + Eq {
-    fn to_storage(self) -> StorageType;
-    fn from_storage(input: StorageType) -> Self;
-}
-
-pub trait GenericStorage:
-    Copy + Clone + Debug + PartialEq + Eq + PartialOrd + Ord + Add + AddAssign + Mul + Div + Rem
+pub trait GenericRank<BoardType: GenericBoard>: Copy + Clone + Debug + PartialEq + Eq
+where
+    BoardType::StorageType: num_traits::PrimInt,
 {
-    //We need to implement our own math operations to avoid fussing around with
-    //std::ops::Mul::Output in generic code
-    fn multiply(self, rhs: Self) -> Self;
-    fn divide(self, rhs: Self) -> Self;
-    fn remainder(self, rhs: Self) -> Self;
+    type StorageType: num_traits::PrimInt;
 
-    fn increment(&mut self, rhs: Self);
-
-    fn one() -> Self;
+    fn to_storage(self) -> Self::StorageType;
+    fn from_storage(input: Self::StorageType) -> Self;
 }
 
-impl GenericStorage for u8 {
-    fn multiply(self, rhs: Self) -> Self {
-        self.mul(rhs)
-    }
+pub trait GenericFile<BoardType: GenericBoard>: Copy + Clone + Debug + PartialEq + Eq
+where
+    BoardType::StorageType: num_traits::PrimInt,
+{
+    type StorageType: num_traits::PrimInt;
 
-    fn divide(self, rhs: Self) -> Self {
-        self.div(rhs)
-    }
-
-    fn remainder(self, rhs: Self) -> Self {
-        self.rem(rhs)
-    }
-
-    fn increment(&mut self, rhs: Self) {
-        self.add_assign(rhs)
-    }
-
-    fn one() -> Self {
-        1
-    }
+    fn to_storage(self) -> Self::StorageType;
+    fn from_storage(input: Self::StorageType) -> Self;
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, new)]
-pub struct Move<BoardType: GenericBoard> {
-    pub src: SquarePos<BoardType>,
-    pub dest: SquarePos<BoardType>,
+#[derive(Copy, Clone, PartialEq, Eq, new)]
+pub struct Move<BoardType: GenericBoard>
+where
+    BoardType::StorageType: num_traits::PrimInt,
+{
+    pub src: BoardType::StorageType,
+    pub dest: BoardType::StorageType,
 }
 
 pub trait GenericPiece: PartialEq + Eq + Copy {}
@@ -73,23 +52,18 @@ impl GenericColor for DefaultColorScheme {}
 
 //Beefy structs
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct SquarePos<BoardType: GenericBoard> {
-    pos: BoardType::StorageType,
-}
-
 #[derive(new)]
 pub struct SquareIter<BoardType: GenericBoard> {
     current: BoardType::StorageType,
     max_size: BoardType::StorageType,
 }
 
-pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq {
+pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString {
     type PieceType: GenericPiece;
     type ColorType: GenericColor;
-    type StorageType: GenericStorage;
-    type FileType: GenericFile<Self::StorageType>;
-    type RankType: GenericRank<Self::StorageType>;
+    type FileType: GenericFile<Self>;
+    type RankType: GenericRank<Self>;
+    type StorageType: num_traits::PrimInt;
     type RawMoveIteratorType: Iterator<Item = Move<Self>>;
 
     fn side_len() -> Self::StorageType;
@@ -99,72 +73,57 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq {
     ///Creates a board with pieces placed in their default positions
     fn default() -> Self;
 
+    fn to_storage(file: Self::FileType, rank: Self::RankType) -> Self::StorageType;
+    fn from_storage(storage: Self::StorageType) -> (Self::FileType, Self::RankType);
+
     fn is_move_legal(&self, board_move: Move<Self>) -> bool;
 
     ///Enumerates the 'raw' moves using the movement rules for the piece occupying the requested
     ///square. Raw means the list may contain moves that transitively are illegal because they
     ///cause checks.
-    fn raw_moves_for_piece(&self, pos: SquarePos<Self>) -> Self::RawMoveIteratorType;
+    fn raw_moves_for_piece(&self, pos: Self::StorageType) -> Self::RawMoveIteratorType;
 
     ///Returns a list of the locations of the pieces that attack a square. Attacking is defined as
     ///having a legal move that moves takes a potential attacker its starting position to pos
-    fn get_attackers_of_square(&self, target_pos: SquarePos<Self>) -> Vec<SquarePos<Self>>;
+    fn get_attackers_of_square(&self, target_pos: Self::StorageType) -> Vec<Self::StorageType>;
 
     fn raw_square_iter(&self) -> SquareIter<Self>;
 
-    fn get(&self, pos: SquarePos<Self>) -> &RawSquare<Self::PieceType, Self::ColorType>;
+    fn get(&self, pos: Self::StorageType) -> &RawSquare<Self::PieceType, Self::ColorType>;
 
     ///Swaps the piece on the board with the mutable piece specified
-    fn swap(&self, pos: SquarePos<Self>, piece: &mut RawSquare<Self::PieceType, Self::ColorType>);
+    fn swap(
+        &mut self,
+        pos: Self::StorageType,
+        piece: &mut RawSquare<Self::PieceType, Self::ColorType>,
+    );
 
     fn set(
         &mut self,
-        pos: SquarePos<Self>,
+        pos: Self::StorageType,
         piece: RawSquare<Self::PieceType, Self::ColorType>,
     ) -> RawSquare<Self::PieceType, Self::ColorType>;
 }
 
-impl<BoardType> SquarePos<BoardType>
-where
-    BoardType: GenericBoard,
-    BoardType::StorageType: GenericStorage,
-{
-    pub fn from_raw(pos: BoardType::StorageType) -> SquarePos<BoardType> {
-        SquarePos { pos }
-    }
-
-    pub fn new(file: BoardType::FileType, rank: BoardType::RankType) -> SquarePos<BoardType> {
-        SquarePos {
-            pos: BoardType::StorageType::from(file.to_storage().multiply(BoardType::side_len())),
-        }
-    }
-
-    pub fn rank(&self) -> BoardType::RankType {
-        BoardType::RankType::from_storage(self.pos.remainder(BoardType::side_len()))
-    }
-
-    pub fn file(&self) -> BoardType::FileType {
-        BoardType::FileType::from_storage(self.pos.divide(BoardType::side_len()))
-    }
-
-    pub fn raw_value(&self) -> BoardType::StorageType {
-        self.pos
-    }
-
-    pub fn side_len() -> BoardType::StorageType {
-        BoardType::side_len()
-    }
+enum MoveError {
+    Rank,
+    File,
+    Both,
 }
 
-impl<BoardType: GenericBoard> Iterator for SquareIter<BoardType> {
-    type Item = SquarePos<BoardType>;
+impl<BoardType: GenericBoard> Iterator for SquareIter<BoardType>
+where
+    BoardType: GenericBoard,
+    BoardType::StorageType: num_traits::PrimInt,
+{
+    type Item = BoardType::StorageType;
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Option<BoardType::StorageType> {
         if self.current >= self.max_size {
             None
         } else {
-            self.current.increment(BoardType::StorageType::one());
-            Some(SquarePos::from_raw(self.current))
+            self.current = self.current + BoardType::StorageType::zero();
+            Some(self.current)
         }
     }
 }
