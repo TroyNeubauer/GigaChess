@@ -268,17 +268,9 @@ mod test {
 
     #[test]
     fn basic_set_get_and_swap() {
-        let mut board: ChessBoard = ChessBoard::new();
+        let board: ChessBoard = ChessBoard::new();
         let empty_square = RawSquare::<ChessPiece, DefaultColorScheme>::empty();
 
-        assert_eq!(
-            board.get(ChessBoard::to_storage(ChessFile::B, ChessRank::R2)),
-            &empty_square
-        );
-        assert_eq!(
-            board.get(ChessBoard::to_storage(ChessFile::A, ChessRank::R1)),
-            &empty_square
-        );
 
         let white_king = RawSquare::<ChessPiece, DefaultColorScheme>::new(
             ChessPiece::King,
@@ -288,27 +280,11 @@ mod test {
             ChessPiece::King,
             DefaultColorScheme::Black,
         );
-        let last_piece = board.set(
-            ChessBoard::to_storage(ChessFile::E, ChessRank::R4),
-            white_king,
-        );
-        assert_eq!(last_piece, empty_square);
-        assert_eq!(
-            board.get(ChessBoard::to_storage(ChessFile::E, ChessRank::R4)),
-            &white_king
-        );
 
-        //Start with a black king in our "hand" then swap it with the white king on E4
-        let mut hand_piece = black_king;
+        let square1 = ChessBoard::to_storage(ChessFile::A, ChessRank::R1);
+        let square2 = ChessBoard::to_storage(ChessFile::E, ChessRank::R4);
 
-        board.swap(
-            ChessBoard::to_storage(ChessFile::E, ChessRank::R4),
-            &mut hand_piece,
-        );
-        assert_eq!(hand_piece, white_king);
-        assert_eq!(
-            board.get(ChessBoard::to_storage(ChessFile::E, ChessRank::R4)),
-            &black_king
-        );
-    }
+        crate::chess_like::test::basic_set_get_and_swap(board, square1, square2, white_king, black_king, empty_square);
+
+   }
 }

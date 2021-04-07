@@ -1,6 +1,6 @@
+use num_traits::Zero;
 use std::fmt::Debug;
 use std::string::ToString;
-use num_traits::Zero;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RawSquare<PieceType, ColorType> {
@@ -29,7 +29,7 @@ where
     fn from_storage(input: Self::StorageType) -> Self;
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, new)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, new)]
 pub struct Move<BoardType: GenericBoard>
 where
     BoardType::StorageType: num_traits::PrimInt,
@@ -38,9 +38,9 @@ where
     pub dest: BoardType::StorageType,
 }
 
-pub trait GenericPiece: PartialEq + Eq + Copy {}
+pub trait GenericPiece: PartialEq + Eq + Copy + Debug {}
 
-pub trait GenericColor: PartialEq + Eq + Copy {}
+pub trait GenericColor: PartialEq + Eq + Copy + Debug {}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DefaultColorScheme {
@@ -139,3 +139,33 @@ impl<PieceType, ColorType> RawSquare<PieceType, ColorType> {
         }
     }
 }
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+
+    pub fn basic_set_get_and_swap<Board: GenericBoard>(
+        mut board: Board,
+        square1: Board::StorageType,
+        square2: Board::StorageType,
+        king1: RawSquare<Board::PieceType, Board::ColorType>,
+        king2: RawSquare<Board::PieceType, Board::ColorType>,
+        empty_square: RawSquare<Board::PieceType, Board::ColorType>
+    ) {
+
+        assert_eq!(board.get(square1), &empty_square);
+        assert_eq!(board.get(square2), &empty_square);
+
+        let last_piece = board.set(square1, king1);
+        assert_eq!(last_piece, empty_square);
+        assert_eq!(board.get(square1), &king1);
+
+        //Start with a black king in our "hand" then swap it with the white king on E4
+        let mut hand_piece = king2;
+
+        board.swap(square1, &mut hand_piece);
+        assert_eq!(hand_piece, king1);
+        assert_eq!(board.get(square1), &king2);
+    }
+}
+

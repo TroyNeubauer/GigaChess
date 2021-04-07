@@ -1,5 +1,6 @@
 pub mod chess;
 pub mod chess_like;
+pub mod contrasting_chess;
 
 
 #[macro_use]
