@@ -11,9 +11,9 @@ pub struct RawSquare<PieceType, ColorType> {
 
 pub trait GenericRank<BoardType: GenericBoard>: Copy + Clone + Debug + PartialEq + Eq
 where
-    BoardType::StorageType: num_traits::PrimInt,
+    BoardType::StorageType: num_traits::PrimInt + Debug,
 {
-    type StorageType: num_traits::PrimInt;
+    type StorageType: num_traits::PrimInt + Debug;
 
     fn to_storage(self) -> Self::StorageType;
     fn from_storage(input: Self::StorageType) -> Self;
@@ -21,9 +21,9 @@ where
 
 pub trait GenericFile<BoardType: GenericBoard>: Copy + Clone + Debug + PartialEq + Eq
 where
-    BoardType::StorageType: num_traits::PrimInt,
+    BoardType::StorageType: num_traits::PrimInt + Debug,
 {
-    type StorageType: num_traits::PrimInt;
+    type StorageType: num_traits::PrimInt + Debug;
 
     fn to_storage(self) -> Self::StorageType;
     fn from_storage(input: Self::StorageType) -> Self;
@@ -32,7 +32,7 @@ where
 #[derive(Copy, Clone, Debug, PartialEq, Eq, new)]
 pub struct Move<BoardType: GenericBoard>
 where
-    BoardType::StorageType: num_traits::PrimInt,
+    BoardType::StorageType: num_traits::PrimInt + Debug,
 {
     pub src: BoardType::StorageType,
     pub dest: BoardType::StorageType,
@@ -63,7 +63,7 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     type ColorType: GenericColor;
     type FileType: GenericFile<Self>;
     type RankType: GenericRank<Self>;
-    type StorageType: num_traits::PrimInt;
+    type StorageType: num_traits::PrimInt + Debug;
     type RawMoveIteratorType: Iterator<Item = Move<Self>>;
 
     fn side_len() -> Self::StorageType;
@@ -116,7 +116,7 @@ enum MoveError {
 impl<BoardType: GenericBoard> Iterator for SquareIter<BoardType>
 where
     BoardType: GenericBoard,
-    BoardType::StorageType: num_traits::PrimInt,
+    BoardType::StorageType: num_traits::PrimInt + Debug,
 {
     type Item = BoardType::StorageType;
 

@@ -3,17 +3,27 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::fmt::Debug;
 
-#[derive(Debug)]
-struct PlayerData<BoardType: crate::chess_like::GenericBoard> {
+use crate::algorithms;
+use crate::chess;
+use crate::chess_like;
+
+#[derive(Debug, new)]
+pub struct PlayerData<BoardType: chess_like::GenericBoard> {
     algorithm: Box<dyn Algorithm<BoardType>>,
-    calculated_time: f64,
-    is_move: bool,
-    last_move_time: DateTime<offset::Local>,
+
+    ///The amount of time the player had on their clock when their move started. None if no time limit
+    ///is in use
+    clock: Option<Duration>,
+
+    ///If Some, indicates that this player's clock is running. The inner value is the instant their move started.
+    ///Used for calculating time used in the current move (the current time - last_move_time)
+    ///If None, then this player is not using their time and it is not their move
+    last_move_time: Option<DateTime<offset::Local>>,
 }
 
 ///This is all an algorithm gets to see when we ask it to move
 #[derive(new)]
-struct AlgorithmInput<BoardType: crate::chess_like::GenericBoard> {
+pub struct AlgorithmInput<BoardType: chess_like::GenericBoard> {
     ///The current board
     board: BoardType,
 
@@ -28,8 +38,8 @@ struct AlgorithmInput<BoardType: crate::chess_like::GenericBoard> {
     time_format: TimeFormat,
 }
 
-enum TimeFormat {
-    Fixed(Duration),
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum TimeFormat {
     Increment {
         initial: Duration,
         increment: Duration,
@@ -37,7 +47,7 @@ enum TimeFormat {
     Unlimited,
 }
 
-struct Game<BoardType: crate::chess_like::GenericBoard, const PLAYER_COUNT: usize> {
+pub struct Game<BoardType: chess_like::GenericBoard, const PLAYER_COUNT: usize> {
     ///The players participating in this game
     players: [PlayerData<BoardType>; PLAYER_COUNT],
 
@@ -53,53 +63,163 @@ struct Game<BoardType: crate::chess_like::GenericBoard, const PLAYER_COUNT: usiz
     ///The number of completed turns (A turn is defined as the number of times each player makes a
     ///move). Starts at 0
     turn_count: usize,
+
+    state: GameState<BoardType>,
+
+    ///The list of moves that lead to this position
+    moves: Vec<chess_like::Move<BoardType>>,
 }
 
-trait Algorithm<BoardType: crate::chess_like::GenericBoard>: Debug {
+pub trait Algorithm<BoardType: chess_like::GenericBoard>: Debug {
     fn next_move(
         &self,
         input: AlgorithmInput<BoardType>,
-    ) -> Result<crate::chess_like::Move<BoardType>, Box<dyn Error + Sync + Send>>;
+    ) -> Result<chess_like::Move<BoardType>, Box<dyn Error + Sync + Send>>;
 }
 
-impl<BoardType: crate::chess_like::GenericBoard, const PlayerCount: usize>
-    Game<BoardType, PlayerCount>
-{
+#[derive(Debug)]
+enum DrawGameType {
+    Stalemate,
+    DeadPosition,
+    DrawOffer,
+}
+
+#[derive(Debug)]
+enum DecisiveGameType<BoardType: chess_like::GenericBoard> {
+    ///The looser resigned
+    Resign,
+    ///The loosing algorithm returned a fatal error
+    Err(Box<dyn Error + Sync + Send>),
+    ///The looser ran out of time
+    Flag,
+    ///The looser was checkmated
+    Checkmate,
+    ///Some other specific end (for another game type TODO)
+    Other,
+    ///The looser tried to make an illegal move
+    IllegalMove(chess_like::Move<BoardType>),
+}
+
+#[derive(Debug)]
+enum GameEndState<BoardType: chess_like::GenericBoard> {
+    Draw(DrawGameType),
+    Decisive(DecisiveGameType<BoardType>),
+    Aborted,
+}
+
+#[derive(Debug)]
+enum GameState<BoardType: chess_like::GenericBoard> {
+    NotStarted,
+    Running,
+    Finished(GameEndState<BoardType>),
+}
+
+impl<BoardType: chess_like::GenericBoard, const PLAYER_COUNT: usize> Game<BoardType, PLAYER_COUNT> {
+    ///Executes a move for one player in the game synchronously, returning true if the game is not over.
+    ///This operation blocks on input (AI computation or waiting for the human player to move a piece),
+    ///then executes the move on the board, tallies the time spent by the player, and finally swaps the player to move
+    ///(I.E the clock of the opposing player starts ticking down, or for gams with > 2 players, play moves
+    ///to the next player in a round robin fashion).
+    ///However since this function only handles one move, so it will return at this point.
+    ///Therefore, this function should be called repeatedly until it returns false, indicating that the game is over.
+    ///If there is any delay between one invocation of this function and the next, that delay will be registered as time spent against the
+    ///player to move, even though the AI did not get this time to think.
     pub fn one_move(&mut self) -> bool {
+        if !self.is_started() {
+            let game_start = Local::now();
+            self.players[0].last_move_time = Some(game_start);
+        }
         let player = &self.players[self.move_index];
+
+        //Computation:
         let result = player.algorithm.next_move(self.state_for_next_move(player));
-        self.apply(result);
+        match result {
+            Ok(generated_move) => self.apply(generated_move),
+            Err(err) => {
+                if self.turn_count == 0 {
+                    self.abort_ending();
+                } else {
+                    self.decisive_ending(DecisiveGameType::Err(err))
+                }
+            }
+        }
+
         false
     }
 
     pub fn new(
-        players: Vec<Box<dyn Algorithm<BoardType>>>,
+        mut algorithms: Vec<Box<dyn Algorithm<BoardType>>>,
         time_format: TimeFormat,
-    ) -> Game<BoardType, PlayerCount> {
+    ) -> Game<BoardType, PLAYER_COUNT> {
         let mut temp_players: Vec<PlayerData<BoardType>> = Vec::new();
+
+        //Build each player's starting data and move the Algorithm for their logic
+        for i in (0..algorithms.len()).rev() {
+            let algorithm = algorithms.remove(i);
+            let clock = match time_format {
+                TimeFormat::Increment { initial, increment } => {
+                    let _ = increment; //why rustfmt? We can't change the name
+                    Some(initial)
+                }
+                TimeFormat::Unlimited => None,
+            };
+            temp_players.push(PlayerData::new(algorithm, clock, None));
+        }
+        temp_players.reverse();
+
         Game {
             players: temp_players.try_into().unwrap(),
             board: BoardType::default(),
             time_format,
+            move_index: 0,
+            turn_count: 0,
+            state: GameState::NotStarted,
+            moves: Vec::new(),
         }
     }
 
-    fn state_for_next_move(&self, player_data: &PlayerData<BoardType>) -> AlgorithmInput<BoardType> {
-        let now = Local::now();
-        let time_to_flag = 
-        AlgorithmInput::new(self.board.clone(), now, 
+    pub fn is_started(&self) -> bool {
+        self.turn_count != 0
+            || self.move_index != 0
+            || self.players[self.move_index].last_move_time.is_some()
     }
-}
 
-#[derive(Debug, new)]
-struct DumbAlgorithm {}
-
-impl<BoardType: crate::chess_like::GenericBoard> Algorithm<BoardType> for DumbAlgorithm {
-    fn next_move(
+    fn state_for_next_move(
         &self,
-        state: PlayerData<BoardType>,
-    ) -> Result<crate::chess_like::Move<BoardType>, Box<dyn Error + Sync + Send>> {
-        Err(String::from("I resign").into())
+        player_data: &PlayerData<BoardType>,
+    ) -> AlgorithmInput<BoardType> {
+        let now = Local::now();
+        let flag_instant = match self.time_format {
+            TimeFormat::Unlimited => None,
+            TimeFormat::Increment { initial, increment } => Some(
+                now + player_data
+                    .clock
+                    .expect("Expected game with the increment time format to have clocks"),
+            ),
+        };
+        AlgorithmInput::new(self.board.clone(), now, flag_instant, self.time_format)
+    }
+
+    fn apply(&mut self, to_apply: chess_like::Move<BoardType>) {
+        if !self.board.is_move_legal(to_apply) {
+            self.decisive_ending(DecisiveGameType::IllegalMove(to_apply));
+            return;
+        }
+    }
+
+    fn decisive_ending(&mut self, ending: DecisiveGameType<BoardType>) {
+        println!("Game ends in decisive ending {:?}", ending);
+        self.state = GameState::Finished(GameEndState::Decisive(ending));
+    }
+
+    fn draw_ending(&mut self, ending: DrawGameType) {
+        println!("Game ends in decisive ending {:?}", ending);
+        self.state = GameState::Finished(GameEndState::Draw(ending));
+    }
+
+    fn abort_ending(&mut self) {
+        println!("Game aborted");
+        self.state = GameState::Finished(GameEndState::Aborted);
     }
 }
 
@@ -107,13 +227,36 @@ impl<BoardType: crate::chess_like::GenericBoard> Algorithm<BoardType> for DumbAl
 pub mod test {
     use super::*;
 
+    #[test]
     fn test() {
-        let white = Box::new(DumbAlgorithm::new());
-        let black = Box::new(DumbAlgorithm::new());
+        let white = Box::new(algorithms::DumbAlgorithm::new());
+        let black = Box::new(algorithms::RandomAlgorithm::new());
         //Not shared with the algos
-        let game: Game<crate::chess::ChessBoard, 2> =
-            Game::new(vec![white, black], TimeFormat::Fixed(Duration::seconds(5)));
+        let mut game: Game<chess::ChessBoard, 2> = Game::new(
+            vec![white, black],
+            TimeFormat::Increment {
+                initial: Duration::minutes(5),
+                increment: Duration::seconds(0),
+            },
+        );
 
-        while game.one_move() {}
+        while game.one_move() {
+            println!("Moved!");
+        }
+
+        let white = Box::new(algorithms::RandomAlgorithm::new());
+        let black = Box::new(algorithms::DumbAlgorithm::new());
+        //Not shared with the algos
+        let mut game: Game<chess::ChessBoard, 2> = Game::new(
+            vec![white, black],
+            TimeFormat::Increment {
+                initial: Duration::minutes(5),
+                increment: Duration::seconds(0),
+            },
+        );
+
+        while game.one_move() {
+            println!("Moved!");
+        }
     }
 }
