@@ -15,6 +15,7 @@ impl GenericPiece for ChessPiece {}
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ChessBoard {
     board: [RawSquare<ChessPiece, DefaultColorScheme>; 64],
+    to_move: DefaultColorScheme,
 }
 
 pub struct RawMoveIterator {
@@ -37,6 +38,7 @@ impl GenericBoard for ChessBoard {
     fn new() -> ChessBoard {
         ChessBoard {
             board: [RawSquare::empty(); 64],
+            to_move: DefaultColorScheme::While,
         }
     }
 
@@ -152,6 +154,10 @@ impl GenericBoard for ChessBoard {
         }
 
         false
+    }
+
+    fn to_move(&self) -> Self::ColorType {
+        self.to_move
     }
 }
 
@@ -286,5 +292,10 @@ mod test {
 
         crate::chess_like::test::basic_set_get_and_swap(board, square1, square2, white_king, black_king, empty_square);
 
+        println!("Regular board size: {}", std::mem::size_of::<ChessBoard>());
+
+        
+
    }
 }
+

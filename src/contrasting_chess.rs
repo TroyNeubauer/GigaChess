@@ -3,7 +3,12 @@ use crate::chess_like::*;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ContrastingChessPiece {
     King,
-
+    Elephant,
+    Bear,
+    Horse,
+    Dragon,
+    Moose,
+    Rodent,
 }
 
 impl GenericPiece for ContrastingChessPiece {}
@@ -11,6 +16,7 @@ impl GenericPiece for ContrastingChessPiece {}
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ContrastingChessBoard {
     board: [RawSquare<ContrastingChessPiece, DefaultColorScheme>; 100],
+    to_move: DefaultColorScheme,
 }
 
 pub struct RawMoveIterator {
@@ -33,6 +39,7 @@ impl GenericBoard for ContrastingChessBoard {
     fn new() -> ContrastingChessBoard {
         ContrastingChessBoard {
             board: [RawSquare::empty(); 100],
+            to_move: DefaultColorScheme::While,
         }
     }
 
@@ -45,16 +52,16 @@ impl GenericBoard for ContrastingChessBoard {
         result
     }
 
-
     fn to_storage(file: Self::FileType, rank: Self::RankType) -> u8 {
         Self::FileType::to_storage(file) << 3 | Self::RankType::to_storage(rank)
     }
 
-
     fn from_storage(storage: u8) -> (Self::FileType, Self::RankType) {
-        (Self::FileType::from_storage((storage >> 3) & 0b111), Self::RankType::from_storage((storage >> 0) & 0b111))
+        (
+            Self::FileType::from_storage((storage >> 3) & 0b111),
+            Self::RankType::from_storage((storage >> 0) & 0b111),
+        )
     }
-
 
     fn raw_moves_for_piece(&self, pos: u8) -> RawMoveIterator {
         RawMoveIterator {
@@ -83,11 +90,7 @@ impl GenericBoard for ContrastingChessBoard {
     }
 
     ///Swaps the piece on the board with the mutable piece specified
-    fn swap(
-        &mut self,
-        pos: u8,
-        piece: &mut RawSquare<ContrastingChessPiece, DefaultColorScheme>,
-    ) {
+    fn swap(&mut self, pos: u8, piece: &mut RawSquare<ContrastingChessPiece, DefaultColorScheme>) {
         std::mem::swap(&mut self.board[pos as usize], piece);
     }
 
@@ -113,17 +116,16 @@ impl GenericBoard for ContrastingChessBoard {
 
         false
     }
-}
 
+    fn to_move(&self) -> Self::ColorType {
+        self.to_move
+    }
+}
 
 impl ToString for ContrastingChessBoard {
     fn to_string(&self) -> String {
-
         String::new()
     }
-
-
-
 }
 
 impl Iterator for RawMoveIterator {
@@ -148,22 +150,21 @@ pub enum ContrastingChessFile {
     J,
 }
 
-impl GenericFile<ContrastingChessBoard> for ContrastingChessFile
-{
+impl GenericFile<ContrastingChessBoard> for ContrastingChessFile {
     type StorageType = u8;
 
     fn to_storage(self) -> Self::StorageType {
         match self {
-           ContrastingChessFile::A => 0,
-           ContrastingChessFile::B => 1,
-           ContrastingChessFile::C => 2,
-           ContrastingChessFile::D => 3,
-           ContrastingChessFile::E => 4,
-           ContrastingChessFile::F => 5,
-           ContrastingChessFile::G => 6,
-           ContrastingChessFile::H => 7,
-           ContrastingChessFile::I => 8,
-           ContrastingChessFile::J => 9,
+            ContrastingChessFile::A => 0,
+            ContrastingChessFile::B => 1,
+            ContrastingChessFile::C => 2,
+            ContrastingChessFile::D => 3,
+            ContrastingChessFile::E => 4,
+            ContrastingChessFile::F => 5,
+            ContrastingChessFile::G => 6,
+            ContrastingChessFile::H => 7,
+            ContrastingChessFile::I => 8,
+            ContrastingChessFile::J => 9,
         }
     }
 
@@ -198,36 +199,35 @@ pub enum ContrastingChessRank {
     R10,
 }
 
-impl GenericRank<ContrastingChessBoard> for ContrastingChessRank
-{
+impl GenericRank<ContrastingChessBoard> for ContrastingChessRank {
     type StorageType = u8;
 
     fn to_storage(self) -> Self::StorageType {
         match self {
-           ContrastingChessRank::R1  =>  0,
-           ContrastingChessRank::R2  =>  1,
-           ContrastingChessRank::R3  =>  2,
-           ContrastingChessRank::R4  =>  3,
-           ContrastingChessRank::R5  =>  4,
-           ContrastingChessRank::R6  =>  5,
-           ContrastingChessRank::R7  =>  6,
-           ContrastingChessRank::R8  =>  7,
-           ContrastingChessRank::R9  =>  8,
-           ContrastingChessRank::R10 => 10,
+            ContrastingChessRank::R1 => 0,
+            ContrastingChessRank::R2 => 1,
+            ContrastingChessRank::R3 => 2,
+            ContrastingChessRank::R4 => 3,
+            ContrastingChessRank::R5 => 4,
+            ContrastingChessRank::R6 => 5,
+            ContrastingChessRank::R7 => 6,
+            ContrastingChessRank::R8 => 7,
+            ContrastingChessRank::R9 => 8,
+            ContrastingChessRank::R10 => 10,
         }
     }
 
     fn from_storage(input: Self::StorageType) -> ContrastingChessRank {
         match input {
-            0  => ContrastingChessRank::R1,
-            1  => ContrastingChessRank::R2,
-            2  => ContrastingChessRank::R3,
-            3  => ContrastingChessRank::R4,
-            4  => ContrastingChessRank::R5,
-            5  => ContrastingChessRank::R6,
-            6  => ContrastingChessRank::R7,
-            7  => ContrastingChessRank::R8,
-            9  => ContrastingChessRank::R9,
+            0 => ContrastingChessRank::R1,
+            1 => ContrastingChessRank::R2,
+            2 => ContrastingChessRank::R3,
+            3 => ContrastingChessRank::R4,
+            4 => ContrastingChessRank::R5,
+            5 => ContrastingChessRank::R6,
+            6 => ContrastingChessRank::R7,
+            7 => ContrastingChessRank::R8,
+            9 => ContrastingChessRank::R9,
             10 => ContrastingChessRank::R10,
             _ => panic!(),
         }
@@ -243,7 +243,6 @@ mod test {
         let board: ContrastingChessBoard = ContrastingChessBoard::new();
         let empty_square = RawSquare::<ContrastingChessPiece, DefaultColorScheme>::empty();
 
-
         let white_king = RawSquare::<ContrastingChessPiece, DefaultColorScheme>::new(
             ContrastingChessPiece::King,
             DefaultColorScheme::While,
@@ -253,11 +252,21 @@ mod test {
             DefaultColorScheme::Black,
         );
 
-        let square1 = ContrastingChessBoard::to_storage(ContrastingChessFile::A, ContrastingChessRank::R1);
-        let square2 = ContrastingChessBoard::to_storage(ContrastingChessFile::E, ContrastingChessRank::R4);
+        let square1 =
+            ContrastingChessBoard::to_storage(ContrastingChessFile::A, ContrastingChessRank::R1);
+        let square2 =
+            ContrastingChessBoard::to_storage(ContrastingChessFile::E, ContrastingChessRank::R4);
 
-        crate::chess_like::test::basic_set_get_and_swap(board, square1, square2, white_king, black_king, empty_square);
+        crate::chess_like::test::basic_set_get_and_swap(
+            board,
+            square1,
+            square2,
+            white_king,
+            black_king,
+            empty_square,
+        );
 
+        println!("Contrasting board size: {}", std::mem::size_of::<ContrastingChessBoard>());
     }
 }
 

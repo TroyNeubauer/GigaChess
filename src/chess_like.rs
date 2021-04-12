@@ -58,7 +58,7 @@ pub struct SquareIter<BoardType: GenericBoard> {
     max_size: BoardType::StorageType,
 }
 
-pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString {
+pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug {
     type PieceType: GenericPiece;
     type ColorType: GenericColor;
     type FileType: GenericFile<Self>;
@@ -103,6 +103,8 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString {
         pos: Self::StorageType,
         piece: RawSquare<Self::PieceType, Self::ColorType>,
     ) -> RawSquare<Self::PieceType, Self::ColorType>;
+
+    fn to_move(&self) -> Self::ColorType;
 }
 
 enum MoveError {
@@ -150,9 +152,8 @@ pub mod test {
         square2: Board::StorageType,
         king1: RawSquare<Board::PieceType, Board::ColorType>,
         king2: RawSquare<Board::PieceType, Board::ColorType>,
-        empty_square: RawSquare<Board::PieceType, Board::ColorType>
+        empty_square: RawSquare<Board::PieceType, Board::ColorType>,
     ) {
-
         assert_eq!(board.get(square1), &empty_square);
         assert_eq!(board.get(square2), &empty_square);
 
@@ -168,4 +169,3 @@ pub mod test {
         assert_eq!(board.get(square1), &king2);
     }
 }
-
