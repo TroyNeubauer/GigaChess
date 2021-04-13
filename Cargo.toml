@@ -4,8 +4,12 @@ version = "0.1.0"
 authors = ["Troy Neubauer <troyneubauer@gmail.com>"]
 edition = "2018"
 
+[lib]
+crate_type = ["cdylib"]
+
 [dependencies]
 derive-new = "0.5"
 num-traits = "0.2.14"
 chrono = "0.4.0"
+jni = "0.19.0"
 
