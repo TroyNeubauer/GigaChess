@@ -26,17 +26,20 @@ pub struct PlayerData<BoardType: chess_like::GenericBoard> {
 #[derive(new)]
 pub struct AlgorithmInput<BoardType: chess_like::GenericBoard> {
     ///The current board
-    board: BoardType,
+    pub board: BoardType,
 
     ///The instant this move started
-    move_start: DateTime<offset::Local>,
+    pub move_start: DateTime<offset::Local>,
 
     ///The instant in time this player will flag if no move is made
     ///None if the time format is unlimited
-    flag_instant: Option<DateTime<offset::Local>>,
+    pub flag_instant: Option<DateTime<offset::Local>>,
 
     ///The time format used in this game
-    time_format: TimeFormat,
+    pub time_format: TimeFormat,
+
+    /// Which color the algorithm is playing as
+    pub color: BoardType::ColorType,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -131,7 +134,7 @@ where
     ///Therefore, this function should be called repeatedly until it returns false, indicating that the game is over.
     ///If there is any delay between one invocation of this function and the next, that delay will be registered as time spent against the
     ///player to move, even though the AI did not get this time to think.
-    pub fn one_move(&mut self) -> bool {
+    pub fn one_move(&mut self) -> Option<chess_like::Move<BoardType>> {
         if !self.is_started() {
             let game_start = Local::now();
             self.players[0].last_move_time = Some(game_start);
@@ -139,22 +142,27 @@ where
         let player = &self.players[self.move_index];
 
         //Computation:
-        let result = player.algorithm.next_move(self.state_for_next_move(player));
+        let result = player.algorithm.next_move(self.state_for_next_move());
         match result {
-            Ok(generated_move) => self.apply(generated_move),
+            Ok(generated_move) => {
+                self.apply(generated_move);
+                self.moves.push(generated_move.clone());
+                Some(generated_move)
+            }
             Err(err) => {
                 if self.turn_count == 0 {
                     self.abort_ending();
                 } else {
                     self.decisive_ending(
-                        BoardType::ColorType::try_from(self.move_index).ok().unwrap(),
+                        BoardType::ColorType::try_from(self.move_index)
+                            .ok()
+                            .unwrap(),
                         DecisiveGameType::Err(err),
                     )
                 }
+                None
             }
         }
-
-        false
     }
 
     pub fn new(
@@ -195,8 +203,8 @@ where
 
     fn state_for_next_move(
         &self,
-        player_data: &PlayerData<BoardType>,
     ) -> AlgorithmInput<BoardType> {
+        let player_data = &self.players[self.move_index];
         let now = Local::now();
         let flag_instant = match self.time_format {
             TimeFormat::Unlimited => None,
@@ -206,13 +214,15 @@ where
                     .expect("Expected game with the increment time format to have clocks"),
             ),
         };
-        AlgorithmInput::new(self.board.clone(), now, flag_instant, self.time_format)
+        AlgorithmInput::new(self.board.clone(), now, flag_instant, self.time_format, BoardType::ColorType::try_from((self.move_index + 1) % PLAYER_COUNT).ok().unwrap())
     }
 
     fn apply(&mut self, to_apply: chess_like::Move<BoardType>) {
-        if !self.board.is_move_legal(to_apply) {
+        if !self.board.is_move_legal(BoardType::ColorType::try_from((self.move_index + 1) % PLAYER_COUNT).ok().unwrap(), to_apply) {
             self.decisive_ending(
-                BoardType::ColorType::try_from((self.move_index + 1) % PLAYER_COUNT).ok().unwrap(),
+                BoardType::ColorType::try_from((self.move_index + 1) % PLAYER_COUNT)
+                    .ok()
+                    .unwrap(),
                 DecisiveGameType::IllegalMove(to_apply),
             );
             return;
@@ -289,8 +299,9 @@ impl<BoardType: chess_like::GenericBoard> fmt::Display for DecisiveGameType<Boar
             DecisiveGameType::Flag => write!(f, "Flag"),
             DecisiveGameType::Checkmate => write!(f, "Checkmate"),
             DecisiveGameType::Other => write!(f, "Unknown"),
-            DecisiveGameType::IllegalMove(illegal_move) => write!(f, "Illegal move {}", illegal_move),
+            DecisiveGameType::IllegalMove(illegal_move) => {
+                write!(f, "Illegal move {}", illegal_move)
+            }
         }
     }
 }
-

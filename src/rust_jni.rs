@@ -68,6 +68,23 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
                 },
             );
 
+            game.board.clear();
+            game.board.set(
+                chess::ChessBoard::to_storage(chess::ChessFile::E, chess::ChessRank::R3),
+                chess_like::RawSquare::new(
+                    chess::ChessPiece::King,
+                    chess_like::DefaultColorScheme::While,
+                ),
+            );
+
+            game.board.set(
+                chess::ChessBoard::to_storage(chess::ChessFile::D, chess::ChessRank::R5),
+                chess_like::RawSquare::new(
+                    chess::ChessPiece::King,
+                    chess_like::DefaultColorScheme::Black,
+                ),
+            );
+
             let still_ok = env
                 .call_static_method(
                     natives_class,
@@ -111,9 +128,34 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
                 }
             }
 
-            while game.one_move() {
-                println!("Got one move");
+            loop {
+                match game.one_move() {
+                    Some(m) => {
+                        let src: isize = m.src.into();
+                        let dest: isize = m.dest.into();
+                        let still_ok = env
+                            .call_static_method(
+                                natives_class,
+                                "display_move",
+                                "(III)Z",
+                                &[
+                                    jni::objects::JValue::Int(game_id),
+                                    jni::objects::JValue::Int(src.try_into().unwrap()),
+                                    jni::objects::JValue::Int(dest.try_into().unwrap()),
+                                ],
+                            )
+                            .expect("Failed to call set_square")
+                            .z()
+                            .ok()
+                            .unwrap();
+                        if !still_ok {
+                            return false.into();
+                        }
+                    }
+                    None => break,
+                }
             }
+
             match game.state {
                 algorithm::GameState::Finished(state) => match state {
                     algorithm::GameEndState::Draw(draw) => {

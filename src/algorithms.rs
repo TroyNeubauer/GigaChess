@@ -1,6 +1,7 @@
 use crate::algorithm;
 use crate::chess_like;
 
+use std::convert::TryFrom;
 use std::error;
 
 use jni::JNIEnv;
@@ -47,15 +48,44 @@ impl<BoardType: crate::chess_like::GenericBoard> algorithm::Algorithm<BoardType>
 {
     fn next_move(
         &self,
-        _input: algorithm::AlgorithmInput<BoardType>,
+        input: algorithm::AlgorithmInput<BoardType>,
     ) -> Result<crate::chess_like::Move<BoardType>, Box<dyn error::Error + Sync + Send>> {
+        loop {
+            //public static long get_human_move(int side);
+            let j_long = self
+                .env
+                .call_static_method(
+                    self.natives_class,
+                    "get_human_move",
+                    "(I)J",
+                    &[jni::objects::JValue::Int(0)],
+                )
+                .expect("Failed to call get_human_move")
+                .j()
+                .ok()
+                .unwrap();
 
-        //public static long get_human_move(int side);
-        let m = self.env.call_static_method(self.natives_class, "get_human_move", "(I)J",  &[ jni::objects::JValue::Int(0) ]).expect("Failed to call get_human_move").j().ok().unwrap();
-        let src_square_raw = ((m >> 32) & 0xFFFFFFFFi64) as usize;
-        let dest_square_raw = (m & 0xFFFFFFFFi64) as usize;
+            let src_square_raw = ((j_long >> 32) & 0xFFFFFFFFi64) as usize;
+            let dest_square_raw = (j_long & 0xFFFFFFFFi64) as usize;
+            let src_square: BoardType::StorageType =
+                BoardType::StorageType::try_from(src_square_raw)
+                    .ok()
+                    .unwrap();
+            let dest_square: BoardType::StorageType =
+                BoardType::StorageType::try_from(dest_square_raw)
+                    .ok()
+                    .unwrap();
 
-        Err(String::from("I resign because im dumb").into())
+            let m: chess_like::Move<BoardType> = chess_like::Move {
+                src: src_square,
+                dest: dest_square,
+            };
+            if input.board.is_move_legal(input.color, m) {
+                println!("Got good move {}", m);
+                return Ok(m);
+            }
+            println!("Move {} is bad", m);
+        }
     }
 }
 
@@ -64,4 +94,3 @@ impl std::fmt::Debug for HumanJavaFXAlgorithm {
         f.write_str("")
     }
 }
-

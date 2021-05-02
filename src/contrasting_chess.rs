@@ -1,4 +1,5 @@
 use crate::chess_like::*;
+use std::fmt;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ContrastingChessPiece {
@@ -18,18 +19,12 @@ pub struct ContrastingChessBoard {
     board: [RawSquare<ContrastingChessPiece, DefaultColorScheme>; 100],
 }
 
-pub struct RawMoveIterator {
-    board: ContrastingChessBoard,
-    last_move: Option<Move<ContrastingChessBoard>>,
-}
-
 impl GenericBoard for ContrastingChessBoard {
     type PieceType = ContrastingChessPiece;
     type ColorType = DefaultColorScheme;
     type FileType = ContrastingChessFile;
     type RankType = ContrastingChessRank;
     type StorageType = u8;
-    type RawMoveIteratorType = RawMoveIterator;
     type PieceIteratorType = DefaultPieceIter<ContrastingChessBoard>;
 
     fn side_len() -> Self::StorageType {
@@ -62,15 +57,17 @@ impl GenericBoard for ContrastingChessBoard {
         )
     }
 
-    fn raw_moves_for_piece(&self, pos: u8) -> RawMoveIterator {
-        RawMoveIterator {
-            board: self.clone(),
-            last_move: None,
-        }
+    fn moves_for_piece(&self, pos: u8) -> MoveList<ContrastingChessBoard> {
+        let result = smallvec::SmallVec::new();
+
+        result
     }
 
     fn raw_square_iter(&self) -> DefaultRawSquareIter<ContrastingChessBoard> {
-        DefaultRawSquareIter::new(0, ContrastingChessBoard::side_len() * ContrastingChessBoard::side_len())
+        DefaultRawSquareIter::new(
+            0,
+            ContrastingChessBoard::side_len() * ContrastingChessBoard::side_len(),
+        )
     }
 
     fn get(&self, pos: u8) -> &RawSquare<ContrastingChessPiece, DefaultColorScheme> {
@@ -92,19 +89,36 @@ impl GenericBoard for ContrastingChessBoard {
         result
     }
 
-    fn is_move_legal(&self, board_move: Move<ContrastingChessBoard>) -> bool {
-        let it = self.raw_moves_for_piece(board_move.src);
-        for generated_move in it {
-            if generated_move == board_move {
-                //If we can find a matching generated raw move then we are on the right track.
-                //Now we just need to check for checks and we are good.
-                return true;
-            }
+    /// Returns true if the square at a given position plus offset is empty. Squares off of the
+    /// board are always occupied (this function returns false)
+    fn is_square_empty_offset(
+        &self,
+        pos: Self::StorageType,
+        file: isize,
+        rank: isize,
+    ) -> Option<Self::StorageType> {
+        let (src_file, src_rank) = Self::from_storage(pos);
+        let dest_file: isize = Self::FileType::to_storage(src_file) as isize + file;
+        let dest_rank: isize = Self::RankType::to_storage(src_rank) as isize + rank;
+        if dest_file < 0 || dest_file >= Self::side_len().into() {
+            //File off the board
+            return None;
         }
-
-        false
+        if dest_rank < 0 || dest_rank >= Self::side_len().into() {
+            //File rank
+            return None;
+        }
+        let new_pos: Self::StorageType = Self::to_storage(
+            ContrastingChessFile::from_storage(dest_file as u8),
+            ContrastingChessRank::from_storage(dest_rank as u8),
+        );
+        let square = self.get(new_pos);
+        match square.0 {
+            Some(piece) => None,
+            None => Some(new_pos),
+        }
     }
-    
+
     fn pieces(&self) -> Self::PieceIteratorType {
         DefaultPieceIter::new(self.raw_square_iter(), None, self.clone())
     }
@@ -112,20 +126,11 @@ impl GenericBoard for ContrastingChessBoard {
     fn pieces_for_color(&self, color: Self::ColorType) -> Self::PieceIteratorType {
         DefaultPieceIter::new(self.raw_square_iter(), Some(color), self.clone())
     }
-
 }
 
 impl ToString for ContrastingChessBoard {
     fn to_string(&self) -> String {
         String::new()
-    }
-}
-
-impl Iterator for RawMoveIterator {
-    type Item = Move<ContrastingChessBoard>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        None
     }
 }
 
@@ -174,6 +179,23 @@ impl GenericFile<ContrastingChessBoard> for ContrastingChessFile {
             8 => ContrastingChessFile::I,
             9 => ContrastingChessFile::J,
             _ => panic!(),
+        }
+    }
+}
+
+impl fmt::Display for ContrastingChessFile {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            ContrastingChessFile::A => f.write_str("A"),
+            ContrastingChessFile::B => f.write_str("B"),
+            ContrastingChessFile::C => f.write_str("C"),
+            ContrastingChessFile::D => f.write_str("D"),
+            ContrastingChessFile::E => f.write_str("E"),
+            ContrastingChessFile::F => f.write_str("F"),
+            ContrastingChessFile::G => f.write_str("G"),
+            ContrastingChessFile::H => f.write_str("H"),
+            ContrastingChessFile::I => f.write_str("I"),
+            ContrastingChessFile::J => f.write_str("J"),
         }
     }
 }
@@ -227,6 +249,23 @@ impl GenericRank<ContrastingChessBoard> for ContrastingChessRank {
     }
 }
 
+impl fmt::Display for ContrastingChessRank {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ContrastingChessRank::R1 => f.write_str("1"),
+            ContrastingChessRank::R2 => f.write_str("2"),
+            ContrastingChessRank::R3 => f.write_str("3"),
+            ContrastingChessRank::R4 => f.write_str("4"),
+            ContrastingChessRank::R5 => f.write_str("5"),
+            ContrastingChessRank::R6 => f.write_str("6"),
+            ContrastingChessRank::R7 => f.write_str("7"),
+            ContrastingChessRank::R8 => f.write_str("8"),
+            ContrastingChessRank::R9 => f.write_str("9"),
+            ContrastingChessRank::R10 => f.write_str("10"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -259,7 +298,9 @@ mod test {
             empty_square,
         );
 
-        println!("Contrasting board size: {}", std::mem::size_of::<ContrastingChessBoard>());
+        println!(
+            "Contrasting board size: {}",
+            std::mem::size_of::<ContrastingChessBoard>()
+        );
     }
 }
-

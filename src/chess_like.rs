@@ -14,23 +14,49 @@ pub struct RawPiece<PieceType, ColorType> {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RawSquare<PieceType, ColorType>(pub Option<RawPiece<PieceType, ColorType>>);
 
-pub trait GenericStorage: num_traits::PrimInt + Debug {}
-
-pub trait GenericRank<BoardType: GenericBoard>: Copy + Clone + Debug + PartialEq + Eq
-where
-    BoardType::StorageType: num_traits::PrimInt + Debug,
+pub trait GenericStorage:
+    num_traits::PrimInt
+    + Debug
+    + TryFrom<usize>
+    + TryFrom<isize>
+    + Into<isize>
+    + PartialEq
+    + Eq
+    + fmt::Display
 {
-    type StorageType: num_traits::PrimInt + Debug;
+}
+impl<
+        T: num_traits::PrimInt
+            + Debug
+            + TryFrom<usize>
+            + TryFrom<isize>
+            + Into<isize>
+            + PartialEq
+            + Eq
+            + fmt::Display,
+    > GenericStorage for T
+{
+}
 
+pub trait GenericRank<BoardType: GenericBoard>:
+    Copy + Clone + Debug + PartialEq + Eq + fmt::Display
+where
+    BoardType::StorageType: GenericStorage,
+{
+    type StorageType: GenericStorage;
+
+    ///Storage type contains just the data for indicating this rank, although usually in the
+    ///context of Generic board it indicates a rank and file
     fn to_storage(self) -> Self::StorageType;
     fn from_storage(input: Self::StorageType) -> Self;
 }
 
-pub trait GenericFile<BoardType: GenericBoard>: Copy + Clone + Debug + PartialEq + Eq
+pub trait GenericFile<BoardType: GenericBoard>:
+    Copy + Clone + Debug + PartialEq + Eq + fmt::Display
 where
-    BoardType::StorageType: num_traits::PrimInt + Debug,
+    BoardType::StorageType: GenericStorage,
 {
-    type StorageType: num_traits::PrimInt + Debug;
+    type StorageType: GenericStorage;
 
     fn to_storage(self) -> Self::StorageType;
     fn from_storage(input: Self::StorageType) -> Self;
@@ -39,7 +65,7 @@ where
 #[derive(Copy, Clone, Debug, PartialEq, Eq, new)]
 pub struct Move<BoardType: GenericBoard>
 where
-    BoardType::StorageType: num_traits::PrimInt + Debug,
+    BoardType::StorageType: GenericStorage,
 {
     pub src: BoardType::StorageType,
     pub dest: BoardType::StorageType,
@@ -72,13 +98,14 @@ pub struct DefaultPieceIter<BoardType: GenericBoard> {
     board: BoardType,
 }
 
+pub type MoveList<BoardType> = smallvec::SmallVec<[<BoardType as GenericBoard>::StorageType; 16]>;
+
 pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug {
     type PieceType: GenericPiece;
     type ColorType: GenericColor;
     type FileType: GenericFile<Self>;
     type RankType: GenericRank<Self>;
-    type StorageType: num_traits::PrimInt + Debug + fmt::Display;
-    type RawMoveIteratorType: Iterator<Item = Move<Self>>;
+    type StorageType: GenericStorage;
     type PieceIteratorType: Iterator<Item = Self::StorageType>;
 
     fn side_len() -> Self::StorageType;
@@ -91,23 +118,25 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     fn to_storage(file: Self::FileType, rank: Self::RankType) -> Self::StorageType;
     fn from_storage(storage: Self::StorageType) -> (Self::FileType, Self::RankType);
 
-    fn is_move_legal(&self, board_move: Move<Self>) -> bool {
-        let it = self.raw_moves_for_piece(board_move.src);
-        for generated_move in it {
-            if generated_move == board_move {
-                //If we can find a matching generated raw move then we are on the right track.
-                //Now we just need to check for checks and we are good.
+    fn is_move_legal(&self, to_move: Self::ColorType, board_move: Move<Self>) -> bool {
+        let moves = self.moves_for_piece(board_move.src);
+        println!(
+            "Got moves {} for piece {}",
+            PrintMoves::<Self>(&moves),
+            board_move
+        );
+        for generated_move in moves.iter() {
+            if *generated_move == board_move.dest {
+                //We found a move starting at src and ending at dest in the list of legal moves
                 return true;
             }
         }
-
         false
     }
 
     ///Enumerates the 'raw' moves using the movement rules for the piece occupying the requested
-    ///square. Raw means the list may contain moves that transitively are illegal because they
-    ///cause checks.
-    fn raw_moves_for_piece(&self, pos: Self::StorageType) -> Self::RawMoveIteratorType;
+    ///square.
+    fn moves_for_piece(&self, pos: Self::StorageType) -> MoveList<Self>;
 
     ///Enumerates all the pieces on the board
     fn pieces(&self) -> Self::PieceIteratorType;
@@ -119,9 +148,12 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     ///having a legal move that takes a potential attacker its starting position to `target_pos`
     fn get_attackers_of_square(&self, target_pos: Self::StorageType) -> Vec<Self::StorageType> {
         let mut result = Vec::new();
-        for pos in self.raw_square_iter() {
-            if self.is_move_legal(Move::new(pos, target_pos)) {
-                result.push(pos);
+        for piece_pos in self.pieces() {
+            let moves = self.moves_for_piece(piece_pos);
+            for m in moves {
+                if m == target_pos {
+                    result.push(piece_pos);
+                }
             }
         }
         result
@@ -144,6 +176,50 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
         piece: RawSquare<Self::PieceType, Self::ColorType>,
     ) -> RawSquare<Self::PieceType, Self::ColorType>;
 
+    /// Clears all pieces off the board
+    fn clear(&mut self) {
+        for square in self.raw_square_iter() {
+            self.set(
+                square,
+                RawSquare::<Self::PieceType, Self::ColorType>::empty(),
+            );
+        }
+    }
+
+    fn is_square_empty(&self, pos: Self::StorageType) -> bool {
+        let square = self.get(pos);
+        square.0.is_none()
+    }
+
+    /// Returns Some(...) if the square at a given position plus offset is empty. Squares off of the
+    /// board are always occupied (this function returns None)
+    /// The returned square is the sum of pos, file, and rank and is guaranteed to be within the
+    /// bounds of the board and empty
+    /// TODO: Provide generic implementation once StorageType is cleaned up
+    fn is_square_empty_offset(
+        &self,
+        pos: Self::StorageType,
+        file: isize,
+        rank: isize,
+    ) -> Option<Self::StorageType>;
+
+    /// After computing the dest move square by adding file and rank to pos, adds the dest move
+    /// to move list if its square is empty and within the bounds of the board
+    fn try_add_move(
+        &self,
+        pos: Self::StorageType,
+        file: isize,
+        rank: isize,
+        moves: &mut MoveList<Self>,
+    ) {
+        match self.is_square_empty_offset(pos, file, rank) {
+            Some(dest_square) => {
+                moves.push(dest_square);
+            }
+            None => {}
+        }
+    }
+
     /// Makes a basic move on the board without checking for legality
     /// Returns what resided on the destination square before this move
     fn apply_raw_move(&mut self, m: Move<Self>) -> RawSquare<Self::PieceType, Self::ColorType> {
@@ -163,7 +239,7 @@ enum MoveError {
 impl<BoardType: GenericBoard> Iterator for DefaultRawSquareIter<BoardType>
 where
     BoardType: GenericBoard,
-    BoardType::StorageType: num_traits::PrimInt + Debug,
+    BoardType::StorageType: GenericStorage,
 {
     type Item = BoardType::StorageType;
 
@@ -181,7 +257,7 @@ where
 impl<BoardType: GenericBoard> Iterator for DefaultPieceIter<BoardType>
 where
     BoardType: GenericBoard,
-    BoardType::StorageType: num_traits::PrimInt + Debug,
+    BoardType::StorageType: GenericStorage,
 {
     type Item = BoardType::StorageType;
 
@@ -267,5 +343,30 @@ impl Into<usize> for DefaultColorScheme {
             DefaultColorScheme::While => 0,
             DefaultColorScheme::Black => 1,
         }
+    }
+}
+
+struct PrintMoves<'a, BoardType: GenericBoard>(&'a MoveList<BoardType>);
+
+impl<'a, BoardType: GenericBoard> fmt::Display for PrintMoves<'a, BoardType>
+where
+    BoardType: GenericBoard,
+    BoardType::StorageType: GenericStorage,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("[")?;
+        let mut first = true;
+        for item in self.0 {
+            if !first {
+                f.write_str(", ")?;
+            }
+            first = false;
+
+            let (file, rank) = BoardType::from_storage(*item);
+            fmt::Display::fmt(&file, f)?;
+            fmt::Display::fmt(&rank, f)?;
+        }
+        f.write_str("]")?;
+        Ok(())
     }
 }
