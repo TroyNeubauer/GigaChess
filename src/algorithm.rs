@@ -53,7 +53,7 @@ pub struct Game<BoardType: chess_like::GenericBoard, const PLAYER_COUNT: usize> 
     players: [PlayerData<BoardType>; PLAYER_COUNT],
 
     ///The board
-    board: BoardType,
+    pub board: BoardType,
 
     ///The time format for this game
     time_format: TimeFormat,

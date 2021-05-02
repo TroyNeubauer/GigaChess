@@ -16,7 +16,6 @@ impl GenericPiece for ContrastingChessPiece {}
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ContrastingChessBoard {
     board: [RawSquare<ContrastingChessPiece, DefaultColorScheme>; 100],
-    to_move: DefaultColorScheme,
 }
 
 pub struct RawMoveIterator {
@@ -31,6 +30,7 @@ impl GenericBoard for ContrastingChessBoard {
     type RankType = ContrastingChessRank;
     type StorageType = u8;
     type RawMoveIteratorType = RawMoveIterator;
+    type PieceIteratorType = DefaultPieceIter<ContrastingChessBoard>;
 
     fn side_len() -> Self::StorageType {
         10
@@ -39,7 +39,6 @@ impl GenericBoard for ContrastingChessBoard {
     fn new() -> ContrastingChessBoard {
         ContrastingChessBoard {
             board: [RawSquare::empty(); 100],
-            to_move: DefaultColorScheme::While,
         }
     }
 
@@ -53,13 +52,13 @@ impl GenericBoard for ContrastingChessBoard {
     }
 
     fn to_storage(file: Self::FileType, rank: Self::RankType) -> u8 {
-        Self::FileType::to_storage(file) << 3 | Self::RankType::to_storage(rank)
+        Self::FileType::to_storage(file) | Self::RankType::to_storage(rank) << 3
     }
 
     fn from_storage(storage: u8) -> (Self::FileType, Self::RankType) {
         (
-            Self::FileType::from_storage((storage >> 3) & 0b111),
-            Self::RankType::from_storage((storage >> 0) & 0b111),
+            Self::FileType::from_storage((storage >> 0) & 0b111),
+            Self::RankType::from_storage((storage >> 3) & 0b111),
         )
     }
 
@@ -71,8 +70,7 @@ impl GenericBoard for ContrastingChessBoard {
     }
 
     fn raw_square_iter(&self) -> DefaultRawSquareIter<ContrastingChessBoard> {
-        let max_size = ContrastingChessBoard::side_len() * ContrastingChessBoard::side_len();
-        DefaultRawSquareIter::new(max_size, 0)
+        DefaultRawSquareIter::new(0, ContrastingChessBoard::side_len() * ContrastingChessBoard::side_len())
     }
 
     fn get(&self, pos: u8) -> &RawSquare<ContrastingChessPiece, DefaultColorScheme> {
@@ -105,6 +103,14 @@ impl GenericBoard for ContrastingChessBoard {
         }
 
         false
+    }
+    
+    fn pieces(&self) -> Self::PieceIteratorType {
+        DefaultPieceIter::new(self.raw_square_iter(), None, self.clone())
+    }
+
+    fn pieces_for_color(&self, color: Self::ColorType) -> Self::PieceIteratorType {
+        DefaultPieceIter::new(self.raw_square_iter(), Some(color), self.clone())
     }
 
 }

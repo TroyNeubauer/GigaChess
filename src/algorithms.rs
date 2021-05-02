@@ -49,12 +49,11 @@ impl<BoardType: crate::chess_like::GenericBoard> algorithm::Algorithm<BoardType>
         &self,
         _input: algorithm::AlgorithmInput<BoardType>,
     ) -> Result<crate::chess_like::Move<BoardType>, Box<dyn error::Error + Sync + Send>> {
-        println!("Got move request for human");
 
         //public static long get_human_move(int side);
         let m = self.env.call_static_method(self.natives_class, "get_human_move", "(I)J",  &[ jni::objects::JValue::Int(0) ]).expect("Failed to call get_human_move").j().ok().unwrap();
-
-        println!("Got move {}", m);
+        let src_square_raw = ((m >> 32) & 0xFFFFFFFFi64) as usize;
+        let dest_square_raw = (m & 0xFFFFFFFFi64) as usize;
 
         Err(String::from("I resign because im dumb").into())
     }

@@ -1,14 +1,13 @@
 // This is the interface to the JVM that we'll call the majority of our
 // methods on.
 
-use crate::algorithm;
-use crate::algorithm::Game;
-use crate::algorithm::TimeFormat;
-use crate::algorithms;
-use crate::chess;
-use crate::contrasting_chess;
+use crate::{algorithm, algorithms, chess, chess_like};
+
+use crate::chess_like::GenericBoard;
 
 use chrono::Duration;
+use std::convert::From;
+use std::convert::TryInto;
 
 use jni::objects::{JClass, JString};
 use jni::sys::{jboolean, jint};
@@ -28,7 +27,6 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
     game_type: jint,
     game_id: jint,
 ) -> jboolean {
-
     // SAFETY:
     //  See HumanJavaFXAlgorithm struct for more details
     let env: JNIEnv<'static> = unsafe { std::mem::transmute(bad_env) };
@@ -62,13 +60,56 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
             };
 
             //Not shared with the algos
-            let mut game: Game<chess::ChessBoard, 2> = Game::new(
+            let mut game: algorithm::Game<chess::ChessBoard, 2> = algorithm::Game::new(
                 vec![a, b],
-                TimeFormat::Increment {
+                algorithm::TimeFormat::Increment {
                     initial: Duration::minutes(5),
                     increment: Duration::seconds(0),
                 },
             );
+
+            let still_ok = env
+                .call_static_method(
+                    natives_class,
+                    "set_board_size",
+                    "(II)Z",
+                    &[
+                        jni::objects::JValue::Int(game_id),
+                        jni::objects::JValue::Int(chess::ChessBoard::side_len().into()),
+                    ],
+                )
+                .expect("Failed to call set_board_size")
+                .z()
+                .ok()
+                .unwrap();
+            if !still_ok {
+                return false.into();
+            }
+
+            for square in game.board.raw_square_iter() {
+                let piece = game.board.get(square);
+
+                //public static boolean set_square(int gameID, int square, int pieceKind, int color) {
+                let still_ok = env
+                    .call_static_method(
+                        natives_class,
+                        "set_square",
+                        "(IIII)Z",
+                        &[
+                            jni::objects::JValue::Int(game_id),
+                            jni::objects::JValue::Int(square as i32),
+                            jni::objects::JValue::Int(to_java_piece_type_chess(piece)),
+                            jni::objects::JValue::Int(to_java_color::<chess::ChessBoard>(piece)),
+                        ],
+                    )
+                    .expect("Failed to call set_square")
+                    .z()
+                    .ok()
+                    .unwrap();
+                if !still_ok {
+                    return false.into();
+                }
+            }
 
             while game.one_move() {
                 println!("Got one move");
@@ -79,7 +120,10 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
                         println!("Game {} ended in a draw: {}", game_id, draw);
                     }
                     algorithm::GameEndState::Decisive { winner, kind } => {
-                        println!("Game {} ended with a win for {} - {}", game_id, winner, kind);
+                        println!(
+                            "Game {} ended with a win for {} - {}",
+                            game_id, winner, kind
+                        );
                     }
                     algorithm::GameEndState::Aborted => {
                         println!("Game {} was aborted", game_id);
@@ -100,3 +144,37 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
     return true.into();
 }
 
+// private static final String[] IMAGE_NAMES = new String[] { "", "king", "queen", "rook",
+// "bishop", "night", "pawn", "donkey", "elephant", "moose" };
+
+fn to_java_piece_type_chess(
+    piece: &chess_like::RawSquare<chess::ChessPiece, chess_like::DefaultColorScheme>,
+) -> jint {
+    match piece.0 {
+        Some(raw_square) => match raw_square.piece {
+            chess::ChessPiece::King => 1,
+            chess::ChessPiece::Queen => 2,
+            chess::ChessPiece::Rook => 3,
+            chess::ChessPiece::Bishop => 4,
+            chess::ChessPiece::Knight => 5,
+            chess::ChessPiece::Pawn => 6,
+        },
+        //Empty square
+        None => 0,
+    }
+}
+
+fn to_java_color<BoardType: chess_like::GenericBoard>(
+    piece: &chess_like::RawSquare<BoardType::PieceType, BoardType::ColorType>,
+) -> jint
+where
+    <BoardType as chess_like::GenericBoard>::ColorType: chess_like::GenericColor,
+{
+    match piece.0 {
+        Some(piece) => {
+            let color: usize = piece.color.try_into().unwrap();
+            color.try_into().unwrap()
+        }
+        None => 0,
+    }
+}

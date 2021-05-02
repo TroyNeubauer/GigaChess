@@ -1,4 +1,4 @@
-use num_traits::Zero;
+use num_traits::One;
 use std::fmt;
 use std::fmt::Debug;
 use std::string::ToString;
@@ -6,11 +6,15 @@ use std::string::ToString;
 use std::convert::TryFrom;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct RawSquare<PieceType, ColorType> {
-    pub data: Option<(PieceType, ColorType)>,
+pub struct RawPiece<PieceType, ColorType> {
+    pub piece: PieceType,
+    pub color: ColorType,
 }
 
-//pub type StorageType = u32;
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct RawSquare<PieceType, ColorType>(pub Option<RawPiece<PieceType, ColorType>>);
+
+pub trait GenericStorage: num_traits::PrimInt + Debug {}
 
 pub trait GenericRank<BoardType: GenericBoard>: Copy + Clone + Debug + PartialEq + Eq
 where
@@ -43,7 +47,7 @@ where
 
 pub trait GenericPiece: PartialEq + Eq + Copy + Debug {}
 
-pub trait GenericColor: PartialEq + Eq + Copy + Debug + TryFrom<usize> {}
+pub trait GenericColor: PartialEq + Eq + Copy + Debug + TryFrom<usize> + Into<usize> {}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DefaultColorScheme {
@@ -53,12 +57,19 @@ pub enum DefaultColorScheme {
 
 impl GenericColor for DefaultColorScheme {}
 
-//Beefy structs
-
 #[derive(new)]
 pub struct DefaultRawSquareIter<BoardType: GenericBoard> {
     current: BoardType::StorageType,
     max_size: BoardType::StorageType,
+}
+
+#[derive(new)]
+pub struct DefaultPieceIter<BoardType: GenericBoard> {
+    raw_squares: DefaultRawSquareIter<BoardType>,
+    color: Option<BoardType::ColorType>,
+
+    //TODO use a reference instead of copying
+    board: BoardType,
 }
 
 pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug {
@@ -68,6 +79,7 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     type RankType: GenericRank<Self>;
     type StorageType: num_traits::PrimInt + Debug + fmt::Display;
     type RawMoveIteratorType: Iterator<Item = Move<Self>>;
+    type PieceIteratorType: Iterator<Item = Self::StorageType>;
 
     fn side_len() -> Self::StorageType;
     ///Creates an empty board
@@ -96,6 +108,12 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     ///square. Raw means the list may contain moves that transitively are illegal because they
     ///cause checks.
     fn raw_moves_for_piece(&self, pos: Self::StorageType) -> Self::RawMoveIteratorType;
+
+    ///Enumerates all the pieces on the board
+    fn pieces(&self) -> Self::PieceIteratorType;
+
+    ///Enumerates all the pieces on the board
+    fn pieces_for_color(&self, color: Self::ColorType) -> Self::PieceIteratorType;
 
     ///Returns a list of the locations of the pieces that attack a square. Attacking is defined as
     ///having a legal move that takes a potential attacker its starting position to `target_pos`
@@ -129,9 +147,9 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     /// Makes a basic move on the board without checking for legality
     /// Returns what resided on the destination square before this move
     fn apply_raw_move(&mut self, m: Move<Self>) -> RawSquare<Self::PieceType, Self::ColorType> {
-        //Move an empty square to where this piece came from, then move the piece from the source
-        //square to the dest square, returning what was captured
-        let piece = self.set(m.src, RawSquare { data: None });
+        //Move an empty square to where this piece came from
+        let piece = self.set(m.src, RawSquare(None));
+        // then move the piece from the source square to the dest square, returning what was captured
         self.set(m.dest, piece)
     }
 }
@@ -153,21 +171,36 @@ where
         if self.current >= self.max_size {
             None
         } else {
-            self.current = self.current + BoardType::StorageType::zero();
-            Some(self.current)
+            let result = self.current;
+            self.current = self.current + BoardType::StorageType::one();
+            Some(result)
+        }
+    }
+}
+
+impl<BoardType: GenericBoard> Iterator for DefaultPieceIter<BoardType>
+where
+    BoardType: GenericBoard,
+    BoardType::StorageType: num_traits::PrimInt + Debug,
+{
+    type Item = BoardType::StorageType;
+
+    fn next(&mut self) -> Option<BoardType::StorageType> {
+        let square = self.raw_squares.next();
+        match square {
+            Some(square) => None,
+            None => None,
         }
     }
 }
 
 impl<PieceType, ColorType> RawSquare<PieceType, ColorType> {
     pub fn empty() -> RawSquare<PieceType, ColorType> {
-        RawSquare { data: None }
+        RawSquare(None)
     }
 
     pub fn new(piece: PieceType, color: ColorType) -> RawSquare<PieceType, ColorType> {
-        RawSquare {
-            data: Some((piece, color)),
-        }
+        RawSquare(Some(RawPiece { piece, color }))
     }
 }
 
@@ -219,10 +252,20 @@ impl TryFrom<usize> for DefaultColorScheme {
     type Error = usize;
 
     fn try_from(value: usize) -> Result<Self, Self::Error> {
+        String::from("");
         match value {
             0 => Ok(DefaultColorScheme::While),
             1 => Ok(DefaultColorScheme::Black),
             _ => Err(value),
+        }
+    }
+}
+
+impl Into<usize> for DefaultColorScheme {
+    fn into(self) -> usize {
+        match self {
+            DefaultColorScheme::While => 0,
+            DefaultColorScheme::Black => 1,
         }
     }
 }
