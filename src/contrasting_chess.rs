@@ -70,19 +70,9 @@ impl GenericBoard for ContrastingChessBoard {
         }
     }
 
-    fn get_attackers_of_square(&self, target_pos: u8) -> Vec<u8> {
-        let mut result = Vec::new();
-        for pos in self.raw_square_iter() {
-            if self.is_move_legal(Move::new(pos, target_pos)) {
-                result.push(pos);
-            }
-        }
-        result
-    }
-
-    fn raw_square_iter(&self) -> SquareIter<ContrastingChessBoard> {
+    fn raw_square_iter(&self) -> DefaultRawSquareIter<ContrastingChessBoard> {
         let max_size = ContrastingChessBoard::side_len() * ContrastingChessBoard::side_len();
-        SquareIter::new(max_size, 0)
+        DefaultRawSquareIter::new(max_size, 0)
     }
 
     fn get(&self, pos: u8) -> &RawSquare<ContrastingChessPiece, DefaultColorScheme> {
@@ -117,9 +107,6 @@ impl GenericBoard for ContrastingChessBoard {
         false
     }
 
-    fn to_move(&self) -> Self::ColorType {
-        self.to_move
-    }
 }
 
 impl ToString for ContrastingChessBoard {

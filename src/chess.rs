@@ -15,7 +15,6 @@ impl GenericPiece for ChessPiece {}
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ChessBoard {
     board: [RawSquare<ChessPiece, DefaultColorScheme>; 64],
-    to_move: DefaultColorScheme,
 }
 
 pub struct RawMoveIterator {
@@ -38,7 +37,6 @@ impl GenericBoard for ChessBoard {
     fn new() -> ChessBoard {
         ChessBoard {
             board: [RawSquare::empty(); 64],
-            to_move: DefaultColorScheme::While,
         }
     }
 
@@ -105,19 +103,9 @@ impl GenericBoard for ChessBoard {
         }
     }
 
-    fn get_attackers_of_square(&self, target_pos: u8) -> Vec<u8> {
-        let mut result = Vec::new();
-        for pos in self.raw_square_iter() {
-            if self.is_move_legal(Move::new(pos, target_pos)) {
-                result.push(pos);
-            }
-        }
-        result
-    }
-
-    fn raw_square_iter(&self) -> SquareIter<ChessBoard> {
+    fn raw_square_iter(&self) -> DefaultRawSquareIter<ChessBoard> {
         let max_size = ChessBoard::side_len() * ChessBoard::side_len();
-        SquareIter::new(max_size, 0)
+        DefaultRawSquareIter::new(max_size, 0)
     }
 
     fn get(&self, pos: u8) -> &RawSquare<ChessPiece, DefaultColorScheme> {
@@ -142,25 +130,7 @@ impl GenericBoard for ChessBoard {
         self.board[pos as usize] = piece;
         result
     }
-
-    fn is_move_legal(&self, board_move: Move<ChessBoard>) -> bool {
-        let it = self.raw_moves_for_piece(board_move.src);
-        for generated_move in it {
-            if generated_move == board_move {
-                //If we can find a matching generated raw move then we are on the right track.
-                //Now we just need to check for checks and we are good.
-                return true;
-            }
-        }
-
-        false
-    }
-
-    fn to_move(&self) -> Self::ColorType {
-        self.to_move
-    }
 }
-
 
 impl ToString for ChessBoard {
     fn to_string(&self) -> String {

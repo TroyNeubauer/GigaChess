@@ -1,7 +1,8 @@
 use chrono::{offset, DateTime, Duration, Local};
+use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::error::Error;
-use std::fmt::Debug;
+use std::fmt;
 
 use crate::algorithms;
 use crate::chess;
@@ -64,13 +65,13 @@ pub struct Game<BoardType: chess_like::GenericBoard, const PLAYER_COUNT: usize> 
     ///move). Starts at 0
     turn_count: usize,
 
-    state: GameState<BoardType>,
+    pub state: GameState<BoardType>,
 
     ///The list of moves that lead to this position
     moves: Vec<chess_like::Move<BoardType>>,
 }
 
-pub trait Algorithm<BoardType: chess_like::GenericBoard>: Debug {
+pub trait Algorithm<BoardType: chess_like::GenericBoard>: fmt::Debug {
     fn next_move(
         &self,
         input: AlgorithmInput<BoardType>,
@@ -78,14 +79,14 @@ pub trait Algorithm<BoardType: chess_like::GenericBoard>: Debug {
 }
 
 #[derive(Debug)]
-enum DrawGameType {
+pub enum DrawGameType {
     Stalemate,
     DeadPosition,
     DrawOffer,
 }
 
 #[derive(Debug)]
-enum DecisiveGameType<BoardType: chess_like::GenericBoard> {
+pub enum DecisiveGameType<BoardType: chess_like::GenericBoard> {
     ///The looser resigned
     Resign,
     ///The loosing algorithm returned a fatal error
@@ -101,26 +102,32 @@ enum DecisiveGameType<BoardType: chess_like::GenericBoard> {
 }
 
 #[derive(Debug)]
-enum GameEndState<BoardType: chess_like::GenericBoard> {
+pub enum GameEndState<BoardType: chess_like::GenericBoard> {
     Draw(DrawGameType),
-    Decisive(DecisiveGameType<BoardType>),
+    Decisive {
+        winner: BoardType::ColorType,
+        kind: DecisiveGameType<BoardType>,
+    },
     Aborted,
 }
 
 #[derive(Debug)]
-enum GameState<BoardType: chess_like::GenericBoard> {
+pub enum GameState<BoardType: chess_like::GenericBoard> {
     NotStarted,
     Running,
     Finished(GameEndState<BoardType>),
 }
 
-impl<BoardType: chess_like::GenericBoard, const PLAYER_COUNT: usize> Game<BoardType, PLAYER_COUNT> {
+impl<BoardType: chess_like::GenericBoard, const PLAYER_COUNT: usize> Game<BoardType, PLAYER_COUNT>
+where
+    BoardType::ColorType: chess_like::GenericColor,
+{
     ///Executes a move for one player in the game synchronously, returning true if the game is not over.
     ///This operation blocks on input (AI computation or waiting for the human player to move a piece),
     ///then executes the move on the board, tallies the time spent by the player, and finally swaps the player to move
     ///(I.E the clock of the opposing player starts ticking down, or for gams with > 2 players, play moves
     ///to the next player in a round robin fashion).
-    ///However since this function only handles one move, so it will return at this point.
+    ///However since this function only handles one move, it will return at this point.
     ///Therefore, this function should be called repeatedly until it returns false, indicating that the game is over.
     ///If there is any delay between one invocation of this function and the next, that delay will be registered as time spent against the
     ///player to move, even though the AI did not get this time to think.
@@ -139,7 +146,10 @@ impl<BoardType: chess_like::GenericBoard, const PLAYER_COUNT: usize> Game<BoardT
                 if self.turn_count == 0 {
                     self.abort_ending();
                 } else {
-                    self.decisive_ending(DecisiveGameType::Err(err))
+                    self.decisive_ending(
+                        BoardType::ColorType::try_from(self.move_index).ok().unwrap(),
+                        DecisiveGameType::Err(err),
+                    )
                 }
             }
         }
@@ -148,24 +158,23 @@ impl<BoardType: chess_like::GenericBoard, const PLAYER_COUNT: usize> Game<BoardT
     }
 
     pub fn new(
-        mut algorithms: Vec<Box<dyn Algorithm<BoardType>>>,
+        algorithms: Vec<Box<dyn Algorithm<BoardType>>>,
         time_format: TimeFormat,
     ) -> Game<BoardType, PLAYER_COUNT> {
-        let mut temp_players: Vec<PlayerData<BoardType>> = Vec::new();
+        let temp_players: Vec<PlayerData<BoardType>> = algorithms
+            .into_iter()
+            .map(|algorithm: Box<dyn Algorithm<BoardType>>| {
+                let clock = match time_format {
+                    TimeFormat::Increment { initial, increment } => {
+                        let _ = increment; //why rustfmt? We can't change the name
+                        Some(initial)
+                    }
+                    TimeFormat::Unlimited => None,
+                };
 
-        //Build each player's starting data and move the Algorithm for their logic
-        for i in (0..algorithms.len()).rev() {
-            let algorithm = algorithms.remove(i);
-            let clock = match time_format {
-                TimeFormat::Increment { initial, increment } => {
-                    let _ = increment; //why rustfmt? We can't change the name
-                    Some(initial)
-                }
-                TimeFormat::Unlimited => None,
-            };
-            temp_players.push(PlayerData::new(algorithm, clock, None));
-        }
-        temp_players.reverse();
+                PlayerData::new(algorithm, clock, None)
+            })
+            .collect();
 
         Game {
             players: temp_players.try_into().unwrap(),
@@ -202,23 +211,24 @@ impl<BoardType: chess_like::GenericBoard, const PLAYER_COUNT: usize> Game<BoardT
 
     fn apply(&mut self, to_apply: chess_like::Move<BoardType>) {
         if !self.board.is_move_legal(to_apply) {
-            self.decisive_ending(DecisiveGameType::IllegalMove(to_apply));
+            self.decisive_ending(
+                BoardType::ColorType::try_from((self.move_index + 1) % PLAYER_COUNT).ok().unwrap(),
+                DecisiveGameType::IllegalMove(to_apply),
+            );
             return;
         }
+        self.board.apply_raw_move(to_apply);
     }
 
-    fn decisive_ending(&mut self, ending: DecisiveGameType<BoardType>) {
-        println!("Game ends in decisive ending {:?}", ending);
-        self.state = GameState::Finished(GameEndState::Decisive(ending));
+    fn decisive_ending(&mut self, winner: BoardType::ColorType, kind: DecisiveGameType<BoardType>) {
+        self.state = GameState::Finished(GameEndState::Decisive { winner, kind });
     }
 
     fn draw_ending(&mut self, ending: DrawGameType) {
-        println!("Game ends in decisive ending {:?}", ending);
         self.state = GameState::Finished(GameEndState::Draw(ending));
     }
 
     fn abort_ending(&mut self) {
-        println!("Game aborted");
         self.state = GameState::Finished(GameEndState::Aborted);
     }
 }
@@ -260,3 +270,27 @@ pub mod test {
         }
     }
 }
+
+impl fmt::Display for DrawGameType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DrawGameType::Stalemate => write!(f, "Stalemate"),
+            DrawGameType::DeadPosition => write!(f, "Dead Position"),
+            DrawGameType::DrawOffer => write!(f, "Draw Offer"),
+        }
+    }
+}
+
+impl<BoardType: chess_like::GenericBoard> fmt::Display for DecisiveGameType<BoardType> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DecisiveGameType::Resign => write!(f, "Resign"),
+            DecisiveGameType::Err(err) => write!(f, "Error {}", err),
+            DecisiveGameType::Flag => write!(f, "Flag"),
+            DecisiveGameType::Checkmate => write!(f, "Checkmate"),
+            DecisiveGameType::Other => write!(f, "Unknown"),
+            DecisiveGameType::IllegalMove(illegal_move) => write!(f, "Illegal move {}", illegal_move),
+        }
+    }
+}
+

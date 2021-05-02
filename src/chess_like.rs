@@ -1,6 +1,9 @@
 use num_traits::Zero;
+use std::fmt;
 use std::fmt::Debug;
 use std::string::ToString;
+
+use std::convert::TryFrom;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RawSquare<PieceType, ColorType> {
@@ -40,7 +43,7 @@ where
 
 pub trait GenericPiece: PartialEq + Eq + Copy + Debug {}
 
-pub trait GenericColor: PartialEq + Eq + Copy + Debug {}
+pub trait GenericColor: PartialEq + Eq + Copy + Debug + TryFrom<usize> {}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DefaultColorScheme {
@@ -53,7 +56,7 @@ impl GenericColor for DefaultColorScheme {}
 //Beefy structs
 
 #[derive(new)]
-pub struct SquareIter<BoardType: GenericBoard> {
+pub struct DefaultRawSquareIter<BoardType: GenericBoard> {
     current: BoardType::StorageType,
     max_size: BoardType::StorageType,
 }
@@ -63,7 +66,7 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     type ColorType: GenericColor;
     type FileType: GenericFile<Self>;
     type RankType: GenericRank<Self>;
-    type StorageType: num_traits::PrimInt + Debug;
+    type StorageType: num_traits::PrimInt + Debug + fmt::Display;
     type RawMoveIteratorType: Iterator<Item = Move<Self>>;
 
     fn side_len() -> Self::StorageType;
@@ -76,7 +79,18 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     fn to_storage(file: Self::FileType, rank: Self::RankType) -> Self::StorageType;
     fn from_storage(storage: Self::StorageType) -> (Self::FileType, Self::RankType);
 
-    fn is_move_legal(&self, board_move: Move<Self>) -> bool;
+    fn is_move_legal(&self, board_move: Move<Self>) -> bool {
+        let it = self.raw_moves_for_piece(board_move.src);
+        for generated_move in it {
+            if generated_move == board_move {
+                //If we can find a matching generated raw move then we are on the right track.
+                //Now we just need to check for checks and we are good.
+                return true;
+            }
+        }
+
+        false
+    }
 
     ///Enumerates the 'raw' moves using the movement rules for the piece occupying the requested
     ///square. Raw means the list may contain moves that transitively are illegal because they
@@ -84,10 +98,18 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     fn raw_moves_for_piece(&self, pos: Self::StorageType) -> Self::RawMoveIteratorType;
 
     ///Returns a list of the locations of the pieces that attack a square. Attacking is defined as
-    ///having a legal move that moves takes a potential attacker its starting position to pos
-    fn get_attackers_of_square(&self, target_pos: Self::StorageType) -> Vec<Self::StorageType>;
+    ///having a legal move that takes a potential attacker its starting position to `target_pos`
+    fn get_attackers_of_square(&self, target_pos: Self::StorageType) -> Vec<Self::StorageType> {
+        let mut result = Vec::new();
+        for pos in self.raw_square_iter() {
+            if self.is_move_legal(Move::new(pos, target_pos)) {
+                result.push(pos);
+            }
+        }
+        result
+    }
 
-    fn raw_square_iter(&self) -> SquareIter<Self>;
+    fn raw_square_iter(&self) -> DefaultRawSquareIter<Self>;
 
     fn get(&self, pos: Self::StorageType) -> &RawSquare<Self::PieceType, Self::ColorType>;
 
@@ -104,7 +126,14 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
         piece: RawSquare<Self::PieceType, Self::ColorType>,
     ) -> RawSquare<Self::PieceType, Self::ColorType>;
 
-    fn to_move(&self) -> Self::ColorType;
+    /// Makes a basic move on the board without checking for legality
+    /// Returns what resided on the destination square before this move
+    fn apply_raw_move(&mut self, m: Move<Self>) -> RawSquare<Self::PieceType, Self::ColorType> {
+        //Move an empty square to where this piece came from, then move the piece from the source
+        //square to the dest square, returning what was captured
+        let piece = self.set(m.src, RawSquare { data: None });
+        self.set(m.dest, piece)
+    }
 }
 
 enum MoveError {
@@ -113,7 +142,7 @@ enum MoveError {
     Both,
 }
 
-impl<BoardType: GenericBoard> Iterator for SquareIter<BoardType>
+impl<BoardType: GenericBoard> Iterator for DefaultRawSquareIter<BoardType>
 where
     BoardType: GenericBoard,
     BoardType::StorageType: num_traits::PrimInt + Debug,
@@ -167,5 +196,33 @@ pub mod test {
         board.swap(square1, &mut hand_piece);
         assert_eq!(hand_piece, king1);
         assert_eq!(board.get(square1), &king2);
+    }
+}
+
+impl fmt::Display for DefaultColorScheme {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DefaultColorScheme::While => write!(f, "White"),
+            DefaultColorScheme::Black => write!(f, "Black"),
+        }
+    }
+}
+
+impl<BoardType: GenericBoard> fmt::Display for Move<BoardType> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} to {}", self.src, self.dest)
+    }
+}
+
+impl TryFrom<usize> for DefaultColorScheme {
+    //Give the user their size back on failure
+    type Error = usize;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(DefaultColorScheme::While),
+            1 => Ok(DefaultColorScheme::Black),
+            _ => Err(value),
+        }
     }
 }
