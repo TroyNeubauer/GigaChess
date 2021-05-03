@@ -51,7 +51,13 @@ impl GenericBoard for ChessBoard {
         match self.get(pos).0 {
             Some(piece) => match piece.piece {
                 ChessPiece::King => {
-                    self.try_add_move(pos, 0, -1, &mut result);
+                   //The king can move one anywhere in a 3x3 box centered around its current
+                   //position except for the square it is currently on
+                    for x in -1..2 {
+                        for y in -1..2 {
+                            self.try_add_move(pos, x, y, &mut result);
+                        }
+                    }
                 }
                 ChessPiece::Queen => {}
                 ChessPiece::Rook => {}

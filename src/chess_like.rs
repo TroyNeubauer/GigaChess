@@ -73,7 +73,10 @@ where
 
 pub trait GenericPiece: PartialEq + Eq + Copy + Debug {}
 
-pub trait GenericColor: PartialEq + Eq + Copy + Debug + TryFrom<usize> + Into<usize> {}
+pub trait GenericColor:
+    PartialEq + Eq + Copy + Debug + TryFrom<usize> + Into<usize> + fmt::Display
+{
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DefaultColorScheme {
@@ -118,15 +121,29 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
     fn to_storage(file: Self::FileType, rank: Self::RankType) -> Self::StorageType;
     fn from_storage(storage: Self::StorageType) -> (Self::FileType, Self::RankType);
 
-    fn is_move_legal(&self, to_move: Self::ColorType, board_move: Move<Self>) -> bool {
-        let moves = self.moves_for_piece(board_move.src);
+    fn is_move_legal(&self, to_move: Self::ColorType, m: Move<Self>) -> bool {
+        match self.get(m.src).0 {
+            Some(m) => {
+                if m.color != to_move {
+                    //We can only move our own pieces
+                    return false;
+                }
+            }
+            None => {
+                //Any move starting from an empty square is invalid
+                return false;
+            }
+        };
+
+        let moves = self.moves_for_piece(m.src);
         println!(
-            "Got moves {} for piece {}",
+            "Got moves {} for piece {}. Playing as colol {}",
             PrintMoves::<Self>(&moves),
-            board_move
+            m,
+            to_move
         );
         for generated_move in moves.iter() {
-            if *generated_move == board_move.dest {
+            if *generated_move == m.dest {
                 //We found a move starting at src and ending at dest in the list of legal moves
                 return true;
             }
@@ -191,34 +208,53 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
         square.0.is_none()
     }
 
-    /// Returns Some(...) if the square at a given position plus offset is empty. Squares off of the
-    /// board are always occupied (this function returns None)
-    /// The returned square is the sum of pos, file, and rank and is guaranteed to be within the
-    /// bounds of the board and empty
-    /// TODO: Provide generic implementation once StorageType is cleaned up
-    fn is_square_empty_offset(
-        &self,
-        pos: Self::StorageType,
+    /// Attempts to add file and rank to pos, returns Some() if the square is within the bounds
+    /// of the board
+    fn offset_pos(&self, pos: Self::StorageType,
         file: isize,
         rank: isize,
     ) -> Option<Self::StorageType>;
 
     /// After computing the dest move square by adding file and rank to pos, adds the dest move
     /// to move list if its square is empty and within the bounds of the board
+    /// Returns true if the move was added to the move list, false if the square was off the board
+    /// or occupied
     fn try_add_move(
         &self,
         pos: Self::StorageType,
         file: isize,
         rank: isize,
         moves: &mut MoveList<Self>,
-    ) {
+    ) -> bool {
         match self.is_square_empty_offset(pos, file, rank) {
             Some(dest_square) => {
                 moves.push(dest_square);
+                true
             }
-            None => {}
+            None => false,
         }
     }
+
+    /// After computing the dest move square by adding file and rank to pos, adds the dest move
+    /// to move list if its square is empty and within the bounds of the board
+    /// Returns true if the move was added to the move list, false if the square was off the board
+    /// or occupied
+    fn try_add_capture_or_move(
+        &self,
+        pos: Self::StorageType,
+        file: isize,
+        rank: isize,
+        moves: &mut MoveList<Self>,
+    ) -> bool {
+        match self.is_square_empty_offset(pos, file, rank) {
+            Some(dest_square) => {
+                moves.push(dest_square);
+                true
+            }
+            None => false,
+        }
+    }
+
 
     /// Makes a basic move on the board without checking for legality
     /// Returns what resided on the destination square before this move

@@ -135,30 +135,37 @@ where
     ///If there is any delay between one invocation of this function and the next, that delay will be registered as time spent against the
     ///player to move, even though the AI did not get this time to think.
     pub fn one_move(&mut self) -> Option<chess_like::Move<BoardType>> {
+        //TODO: Stalemate
         if !self.is_started() {
             let game_start = Local::now();
             self.players[0].last_move_time = Some(game_start);
         }
+        println!("Running one move player {}", self.move_index);
         let player = &self.players[self.move_index];
 
         //Computation:
         let result = player.algorithm.next_move(self.state_for_next_move());
+
         match result {
             Ok(generated_move) => {
-                self.apply(generated_move);
+                if !self.board.is_move_legal(self.to_move(), generated_move) {
+                    self.decisive_ending(
+                        self.not_to_move(),
+                        DecisiveGameType::IllegalMove(generated_move),
+                    );
+                    return None;
+                }
+                self.board.apply_raw_move(generated_move);
                 self.moves.push(generated_move.clone());
+                self.move_index = (self.move_index + 1) % PLAYER_COUNT;
+
                 Some(generated_move)
             }
             Err(err) => {
                 if self.turn_count == 0 {
                     self.abort_ending();
                 } else {
-                    self.decisive_ending(
-                        BoardType::ColorType::try_from(self.move_index)
-                            .ok()
-                            .unwrap(),
-                        DecisiveGameType::Err(err),
-                    )
+                    self.decisive_ending(self.not_to_move(), DecisiveGameType::Err(err))
                 }
                 None
             }
@@ -201,9 +208,7 @@ where
             || self.players[self.move_index].last_move_time.is_some()
     }
 
-    fn state_for_next_move(
-        &self,
-    ) -> AlgorithmInput<BoardType> {
+    fn state_for_next_move(&self) -> AlgorithmInput<BoardType> {
         let player_data = &self.players[self.move_index];
         let now = Local::now();
         let flag_instant = match self.time_format {
@@ -214,20 +219,27 @@ where
                     .expect("Expected game with the increment time format to have clocks"),
             ),
         };
-        AlgorithmInput::new(self.board.clone(), now, flag_instant, self.time_format, BoardType::ColorType::try_from((self.move_index + 1) % PLAYER_COUNT).ok().unwrap())
+        AlgorithmInput::new(
+            self.board.clone(),
+            now,
+            flag_instant,
+            self.time_format,
+            self.to_move(),
+        )
     }
 
-    fn apply(&mut self, to_apply: chess_like::Move<BoardType>) {
-        if !self.board.is_move_legal(BoardType::ColorType::try_from((self.move_index + 1) % PLAYER_COUNT).ok().unwrap(), to_apply) {
-            self.decisive_ending(
-                BoardType::ColorType::try_from((self.move_index + 1) % PLAYER_COUNT)
-                    .ok()
-                    .unwrap(),
-                DecisiveGameType::IllegalMove(to_apply),
-            );
-            return;
-        }
-        self.board.apply_raw_move(to_apply);
+    fn to_move(&self) -> BoardType::ColorType {
+        BoardType::ColorType::try_from(self.move_index)
+            .ok()
+            .unwrap()
+    }
+
+    ///Returns the opposite of to_move for 2 player games. IE. the one who isn't moving currently
+    /// TODO: Implement properly for > 2 player games
+    fn not_to_move(&self) -> BoardType::ColorType {
+        BoardType::ColorType::try_from((self.move_index + 1) % PLAYER_COUNT)
+            .ok()
+            .unwrap()
     }
 
     fn decisive_ending(&mut self, winner: BoardType::ColorType, kind: DecisiveGameType<BoardType>) {

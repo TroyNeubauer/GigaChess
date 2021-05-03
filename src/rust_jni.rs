@@ -133,6 +133,7 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
                     Some(m) => {
                         let src: isize = m.src.into();
                         let dest: isize = m.dest.into();
+
                         let still_ok = env
                             .call_static_method(
                                 natives_class,
