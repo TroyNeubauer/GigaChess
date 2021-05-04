@@ -101,6 +101,12 @@ pub struct DefaultPieceIter<BoardType: GenericBoard> {
     board: BoardType,
 }
 
+pub enum AddMoveResult {
+    AddMoveStopIterating,
+    AddMoveKeepIterating,
+    NoAddMove,
+}
+
 pub type MoveList<BoardType> = smallvec::SmallVec<[<BoardType as GenericBoard>::StorageType; 16]>;
 
 pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug {
@@ -208,29 +214,55 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
         square.0.is_none()
     }
 
-    /// Attempts to add file and rank to pos, returns Some() if the square is within the bounds
+    /// Attempts to add file and rank to pos, returns Some(sum_pos) if the square is within the bounds
     /// of the board
-    fn offset_pos(&self, pos: Self::StorageType,
+    fn offset_pos(
+        &self,
+        pos: Self::StorageType,
         file: isize,
         rank: isize,
     ) -> Option<Self::StorageType>;
 
-    /// After computing the dest move square by adding file and rank to pos, adds the dest move
-    /// to move list if its square is empty and within the bounds of the board
-    /// Returns true if the move was added to the move list, false if the square was off the board
-    /// or occupied
-    fn try_add_move(
+    /// Computes pos + file + rank and returns Some if the square is on the board and empty, None
+    /// otherwise
+    fn is_square_empty_offset(
+        &self,
+        pos: Self::StorageType,
+        file: isize,
+        rank: isize,
+    ) -> Option<Self::StorageType> {
+        match self.offset_pos(pos, file, rank) {
+            Some(pos) => match self.get(pos).0 {
+                Some(_square) => None,
+                None => Some(pos),
+            },
+            None => return None,
+        }
+    }
+
+    /// If pos + file + rank is on the board, f is called to determine weather on not the move
+    /// should be added. f returns a tuple of (add, result) if add is true the move is added to
+    /// the list and result is returned, otherwise false is returned.
+    fn add_move(
         &self,
         pos: Self::StorageType,
         file: isize,
         rank: isize,
         moves: &mut MoveList<Self>,
+        f: impl Fn(RawSquare<Self::PieceType, Self::ColorType>) -> AddMoveResult,
     ) -> bool {
-        match self.is_square_empty_offset(pos, file, rank) {
-            Some(dest_square) => {
-                moves.push(dest_square);
-                true
-            }
+        match self.offset_pos(pos, file, rank) {
+            Some(pos) => match f(self.get(pos).clone()) {
+                AddMoveResult::AddMoveKeepIterating => {
+                    moves.push(pos);
+                    true
+                }
+                AddMoveResult::AddMoveStopIterating => {
+                    moves.push(pos);
+                    false
+                }
+                AddMoveResult::NoAddMove => false,
+            },
             None => false,
         }
     }
@@ -254,7 +286,6 @@ pub trait GenericBoard: Sized + Copy + Clone + PartialEq + Eq + ToString + Debug
             None => false,
         }
     }
-
 
     /// Makes a basic move on the board without checking for legality
     /// Returns what resided on the destination square before this move

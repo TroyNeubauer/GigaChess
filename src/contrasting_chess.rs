@@ -89,9 +89,7 @@ impl GenericBoard for ContrastingChessBoard {
         result
     }
 
-    /// Returns true if the square at a given position plus offset is empty. Squares off of the
-    /// board are always occupied (this function returns false)
-    fn is_square_empty_offset(
+    fn offset_pos(
         &self,
         pos: Self::StorageType,
         file: isize,
@@ -108,15 +106,10 @@ impl GenericBoard for ContrastingChessBoard {
             //File rank
             return None;
         }
-        let new_pos: Self::StorageType = Self::to_storage(
+        Some(Self::to_storage(
             ContrastingChessFile::from_storage(dest_file as u8),
             ContrastingChessRank::from_storage(dest_rank as u8),
-        );
-        let square = self.get(new_pos);
-        match square.0 {
-            Some(piece) => None,
-            None => Some(new_pos),
-        }
+        ))
     }
 
     fn pieces(&self) -> Self::PieceIteratorType {

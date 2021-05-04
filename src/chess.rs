@@ -51,16 +51,56 @@ impl GenericBoard for ChessBoard {
         match self.get(pos).0 {
             Some(piece) => match piece.piece {
                 ChessPiece::King => {
-                   //The king can move one anywhere in a 3x3 box centered around its current
-                   //position except for the square it is currently on
+                    //The king can move one anywhere in a 3x3 box centered around its current
+                    //position except for the square it is currently on
                     for x in -1..2 {
                         for y in -1..2 {
-                            self.try_add_move(pos, x, y, &mut result);
+                            if x == 0 && y == 0 {
+                                continue;
+                            }
+                            //Always add moves since we control the bounds
+                            self.add_move(pos, x, y, &mut result, |_| {
+                                AddMoveResult::AddMoveKeepIterating
+                            });
                         }
                     }
                 }
                 ChessPiece::Queen => {}
-                ChessPiece::Rook => {}
+                ChessPiece::Rook => {
+                    //Stop iteration on the first capture
+                    let func = |piece: RawSquare<Self::PieceType, Self::ColorType>| match piece.0 {
+                        Some(_piece) => AddMoveResult::AddMoveStopIterating,
+                        None => AddMoveResult::AddMoveKeepIterating,
+                    };
+                    let mut x = 1;
+                    loop {
+                        if !self.add_move(pos, x, 0, &mut result, func) {
+                            break;
+                        }
+                        x += 1;
+                    }
+                    let mut x = -1;
+                    loop {
+                        if !self.add_move(pos, x, 0, &mut result, func) {
+                            break;
+                        }
+                        x -= 1;
+                    }
+                    let mut y = 1;
+                    loop {
+                        if !self.add_move(pos, 0, y, &mut result, func) {
+                            break;
+                        }
+                        y += 1;
+                    }
+                    let mut y = -1;
+                    loop {
+                        if !self.add_move(pos, 0, y, &mut result, func) {
+                            break;
+                        }
+                        y -= 1;
+                    }
+                }
                 ChessPiece::Bishop => {}
                 ChessPiece::Knight => {}
                 ChessPiece::Pawn => {}
@@ -104,7 +144,7 @@ impl GenericBoard for ChessBoard {
         DefaultPieceIter::new(self.raw_square_iter(), Some(color), self.clone())
     }
 
-    fn is_square_empty_offset(
+    fn offset_pos(
         &self,
         pos: Self::StorageType,
         file: isize,
@@ -121,15 +161,10 @@ impl GenericBoard for ChessBoard {
             //File rank
             return None;
         }
-        let new_pos: Self::StorageType = Self::to_storage(
+        Some(Self::to_storage(
             ChessFile::from_storage(dest_file as u8),
             ChessRank::from_storage(dest_rank as u8),
-        );
-        let square = self.get(new_pos);
-        match square.0 {
-            Some(piece) => None,
-            None => Some(new_pos),
-        }
+        ))
     }
 
     fn default() -> ChessBoard {

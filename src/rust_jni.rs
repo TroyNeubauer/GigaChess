@@ -84,6 +84,20 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
                     chess_like::DefaultColorScheme::Black,
                 ),
             );
+            game.board.set(
+                chess::ChessBoard::to_storage(chess::ChessFile::A, chess::ChessRank::R1),
+                chess_like::RawSquare::new(
+                    chess::ChessPiece::Rook,
+                    chess_like::DefaultColorScheme::While,
+                ),
+            );
+            game.board.set(
+                chess::ChessBoard::to_storage(chess::ChessFile::H, chess::ChessRank::R8),
+                chess_like::RawSquare::new(
+                    chess::ChessPiece::Rook,
+                    chess_like::DefaultColorScheme::Black,
+                ),
+            );
 
             let still_ok = env
                 .call_static_method(
