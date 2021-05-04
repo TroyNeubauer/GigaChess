@@ -103,7 +103,26 @@ impl GenericBoard for ChessBoard {
                 }
                 ChessPiece::Bishop => {}
                 ChessPiece::Knight => {}
-                ChessPiece::Pawn => {}
+                ChessPiece::Pawn => {
+                    let forward_direction = if piece.color == DefaultColorScheme::While {
+                        1
+                    } else {
+                        -1
+                    };
+                    let forward = |piece: RawSquare<Self::PieceType, Self::ColorType>| match piece.0
+                    {
+                        Some(_piece) => AddMoveResult::NoAddMove,
+                        None => AddMoveResult::AddMoveStopIterating,
+                    };
+
+                    self.add_move(pos, 0, forward_direction, &mut result, forward);
+                    let (_file, rank) = Self::from_storage(pos);
+                    if piece.color == DefaultColorScheme::While && rank == ChessRank::R2
+                        || piece.color == DefaultColorScheme::Black && rank == ChessRank::R7
+                    {
+                        self.add_move(pos, 0, forward_direction * 2, &mut result, forward);
+                    }
+                }
             },
             None => {}
         }
