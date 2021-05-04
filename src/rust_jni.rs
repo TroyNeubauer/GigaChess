@@ -192,25 +192,28 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
             }
         }
         1 => {
-            let a: Box<dyn algorithm::Algorithm<contrasting_chess::ContrastingChessBoard>> = match a_name.as_str() {
-                "human" => Box::new(algorithms::HumanJavaFXAlgorithm::new(env, natives_class)),
-                "random_ai" => Box::new(algorithms::RandomAlgorithm::new()),
-                _ => return false.into(),
-            };
-            let b: Box<dyn algorithm::Algorithm<contrasting_chess::ContrastingChessBoard>> = match b_name.as_str() {
-                "human" => Box::new(algorithms::HumanJavaFXAlgorithm::new(env, natives_class)),
-                "random_ai" => Box::new(algorithms::RandomAlgorithm::new()),
-                _ => return false.into(),
-            };
+            let a: Box<dyn algorithm::Algorithm<contrasting_chess::ContrastingChessBoard>> =
+                match a_name.as_str() {
+                    "human" => Box::new(algorithms::HumanJavaFXAlgorithm::new(env, natives_class)),
+                    "random_ai" => Box::new(algorithms::RandomAlgorithm::new()),
+                    _ => return false.into(),
+                };
+            let b: Box<dyn algorithm::Algorithm<contrasting_chess::ContrastingChessBoard>> =
+                match b_name.as_str() {
+                    "human" => Box::new(algorithms::HumanJavaFXAlgorithm::new(env, natives_class)),
+                    "random_ai" => Box::new(algorithms::RandomAlgorithm::new()),
+                    _ => return false.into(),
+                };
 
             //Not shared with the algos
-            let mut game: algorithm::Game<contrasting_chess::ContrastingChessBoard, 2> = algorithm::Game::new(
-                vec![a, b],
-                algorithm::TimeFormat::Increment {
-                    initial: Duration::minutes(5),
-                    increment: Duration::seconds(0),
-                },
-            );
+            let mut game: algorithm::Game<contrasting_chess::ContrastingChessBoard, 2> =
+                algorithm::Game::new(
+                    vec![a, b],
+                    algorithm::TimeFormat::Increment {
+                        initial: Duration::minutes(5),
+                        increment: Duration::seconds(0),
+                    },
+                );
 
             let still_ok = env
                 .call_static_method(
@@ -219,7 +222,9 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
                     "(II)Z",
                     &[
                         jni::objects::JValue::Int(game_id),
-                        jni::objects::JValue::Int(contrasting_chess::ContrastingChessBoard::side_len().into()),
+                        jni::objects::JValue::Int(
+                            contrasting_chess::ContrastingChessBoard::side_len().into(),
+                        ),
                     ],
                 )
                 .expect("Failed to call set_board_size")
@@ -243,7 +248,9 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
                             jni::objects::JValue::Int(game_id),
                             jni::objects::JValue::Int(square as i32),
                             jni::objects::JValue::Int(to_java_piece_type_contrasting_chess(piece)),
-                            jni::objects::JValue::Int(to_java_color::<contrasting_chess::ContrastingChessBoard>(piece)),
+                            jni::objects::JValue::Int(to_java_color::<
+                                contrasting_chess::ContrastingChessBoard,
+                            >(piece)),
                         ],
                     )
                     .expect("Failed to call set_square")
@@ -313,9 +320,6 @@ pub extern "system" fn Java_com_troy_chess_Natives_start_1game(
     return true.into();
 }
 
-// private static final String[] IMAGE_NAMES = new String[] { "", "king", "queen", "rook",
-// "bishop", "night", "pawn", "donkey", "elephant", "moose" };
-
 fn to_java_piece_type_chess(
     piece: &chess_like::RawSquare<chess::ChessPiece, chess_like::DefaultColorScheme>,
 ) -> jint {
@@ -335,31 +339,25 @@ fn to_java_piece_type_chess(
 
 
 fn to_java_piece_type_contrasting_chess(
-    piece: &chess_like::RawSquare<contrasting_chess::ContrastingChessPiece, chess_like::DefaultColorScheme>,
+    piece: &chess_like::RawSquare<
+        contrasting_chess::ContrastingChessPiece,
+        chess_like::DefaultColorScheme,
+    >,
 ) -> jint {
     match piece.0 {
         Some(raw_square) => match raw_square.piece {
-King,
-    Elephant,
-    Bear,
-    Horse,
-    Dragon,
-    Moose,
-    Rodent,
-
-            chess::ChessPiece::King => 1,
-            chess::ChessPiece::Queen => 2,
-            chess::ChessPiece::Rook => 3,
-            chess::ChessPiece::Bishop => 4,
-            chess::ChessPiece::Knight => 5,
-            chess::ChessPiece::Pawn => 6,
+            contrasting_chess::ContrastingChessPiece::King => 1,
+            contrasting_chess::ContrastingChessPiece::Elephant => 8,
+            contrasting_chess::ContrastingChessPiece::Bear => 7,
+            contrasting_chess::ContrastingChessPiece::Horse => 5,
+            contrasting_chess::ContrastingChessPiece::Dragon => 10,
+            contrasting_chess::ContrastingChessPiece::Moose => 9,
+            contrasting_chess::ContrastingChessPiece::Weasel => 11,
         },
         //Empty square
         None => 0,
     }
 }
-
-
 
 fn to_java_color<BoardType: chess_like::GenericBoard>(
     piece: &chess_like::RawSquare<BoardType::PieceType, BoardType::ColorType>,

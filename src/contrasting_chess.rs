@@ -9,7 +9,7 @@ pub enum ContrastingChessPiece {
     Horse,
     Dragon,
     Moose,
-    Rodent,
+    Weasel,
 }
 
 impl GenericPiece for ContrastingChessPiece {}
@@ -36,29 +36,320 @@ impl GenericBoard for ContrastingChessBoard {
             board: [RawSquare::empty(); 100],
         }
     }
+    /*
+        Weasel,
+    */
 
-    #[rustfmt::skip]
     fn default() -> ContrastingChessBoard {
         let mut result = ContrastingChessBoard::new();
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::A, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::Bear, DefaultColorScheme::While),
+        );
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::J, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::Bear, DefaultColorScheme::While),
+        );
 
-        //TODO 
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::B, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::Moose, DefaultColorScheme::While),
+        );
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::I, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::Moose, DefaultColorScheme::While),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::C, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::Dragon, DefaultColorScheme::While),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::H, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::Dragon, DefaultColorScheme::While),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::D, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::Horse, DefaultColorScheme::While),
+        );
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::G, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::Horse, DefaultColorScheme::While),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::E, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::Elephant, DefaultColorScheme::While),
+        );
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::F, ContrastingChessRank::R1),
+            RawSquare::new(ContrastingChessPiece::King, DefaultColorScheme::While),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::A, ContrastingChessRank::R2),
+            RawSquare::new(ContrastingChessPiece::Elephant, DefaultColorScheme::While),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::J, ContrastingChessRank::R2),
+            RawSquare::new(ContrastingChessPiece::Elephant, DefaultColorScheme::While),
+        );
+
+        let pos =
+            ContrastingChessBoard::to_storage(ContrastingChessFile::A, ContrastingChessRank::R2);
+        for x in 1..9 {
+            let pos = result.offset_pos(pos, x, 0).unwrap();
+            result.set(
+                pos,
+                RawSquare::new(ContrastingChessPiece::Weasel, DefaultColorScheme::While),
+            );
+        }
+
+        //Black
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::A, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::Bear, DefaultColorScheme::Black),
+        );
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::J, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::Bear, DefaultColorScheme::Black),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::B, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::Moose, DefaultColorScheme::Black),
+        );
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::I, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::Moose, DefaultColorScheme::Black),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::C, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::Dragon, DefaultColorScheme::Black),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::H, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::Dragon, DefaultColorScheme::Black),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::D, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::Horse, DefaultColorScheme::Black),
+        );
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::G, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::Horse, DefaultColorScheme::Black),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::E, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::Elephant, DefaultColorScheme::Black),
+        );
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::F, ContrastingChessRank::R10),
+            RawSquare::new(ContrastingChessPiece::King, DefaultColorScheme::Black),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::A, ContrastingChessRank::R9),
+            RawSquare::new(ContrastingChessPiece::Elephant, DefaultColorScheme::Black),
+        );
+
+        result.set(
+            ContrastingChessBoard::to_storage(ContrastingChessFile::J, ContrastingChessRank::R9),
+            RawSquare::new(ContrastingChessPiece::Elephant, DefaultColorScheme::Black),
+        );
+
+        let pos =
+            ContrastingChessBoard::to_storage(ContrastingChessFile::A, ContrastingChessRank::R9);
+        for x in 1..9 {
+            let pos = result.offset_pos(pos, x, 0).unwrap();
+            result.set(
+                pos,
+                RawSquare::new(ContrastingChessPiece::Weasel, DefaultColorScheme::Black),
+            );
+        }
 
         result
     }
 
     fn to_storage(file: Self::FileType, rank: Self::RankType) -> u8 {
-        Self::FileType::to_storage(file) | Self::RankType::to_storage(rank) << 3
+        Self::FileType::to_storage(file) + Self::RankType::to_storage(rank) * 10
     }
 
     fn from_storage(storage: u8) -> (Self::FileType, Self::RankType) {
+        let file = storage % 10;
+        let rank = storage / 10;
         (
-            Self::FileType::from_storage((storage >> 0) & 0b111),
-            Self::RankType::from_storage((storage >> 3) & 0b111),
+            Self::FileType::from_storage(file),
+            Self::RankType::from_storage(rank),
         )
     }
 
     fn moves_for_piece(&self, pos: u8) -> MoveList<ContrastingChessBoard> {
-        let result = smallvec::SmallVec::new();
+        let mut result = smallvec::SmallVec::new();
+        match self.get(pos).0 {
+            Some(piece) => match piece.piece {
+                ContrastingChessPiece::King => {
+                    //The king can move one anywhere in a 3x3 box centered around its current
+                    //position except for the square it is currently on
+                    for x in -1..2 {
+                        for y in -1..2 {
+                            if x == 0 && y == 0 {
+                                continue;
+                            }
+                            //Always add moves since we control the bounds
+                            self.add_move(pos, x, y, &mut result, |_| {
+                                AddMoveResult::AddMoveKeepIterating
+                            });
+                        }
+                    }
+                }
+
+                ContrastingChessPiece::Elephant => {
+                    let func = |piece: RawSquare<Self::PieceType, Self::ColorType>| match piece.0 {
+                        Some(piece) => {
+                            if piece.piece == ContrastingChessPiece::Weasel {
+                                AddMoveResult::NoAddMove
+                            } else {
+                                AddMoveResult::AddMoveStopIterating
+                            }
+                        }
+                        None => AddMoveResult::AddMoveKeepIterating,
+                    };
+                    let mut x = 1;
+                    loop {
+                        if !self.add_move(pos, x, 0, &mut result, func) {
+                            break;
+                        }
+                        x += 1;
+                    }
+                    let mut x = -1;
+                    loop {
+                        if !self.add_move(pos, x, 0, &mut result, func) {
+                            break;
+                        }
+                        x -= 1;
+                    }
+                    let mut y = 1;
+                    loop {
+                        if !self.add_move(pos, 0, y, &mut result, func) {
+                            break;
+                        }
+                        y += 1;
+                    }
+                    let mut y = -1;
+                    loop {
+                        if !self.add_move(pos, 0, y, &mut result, func) {
+                            break;
+                        }
+                        y -= 1;
+                    }
+
+                    let mut y = -1;
+                    let mut x = -1;
+                    loop {
+                        if !self.add_move(pos, x, y, &mut result, func) {
+                            break;
+                        }
+                        y -= 1;
+                        x -= 1;
+                    }
+                    let mut y = 1;
+                    let mut x = -1;
+                    loop {
+                        if !self.add_move(pos, x, y, &mut result, func) {
+                            break;
+                        }
+                        y += 1;
+                        x -= 1;
+                    }
+                    let mut y = 1;
+                    let mut x = 1;
+                    loop {
+                        if !self.add_move(pos, x, y, &mut result, func) {
+                            break;
+                        }
+                        y += 1;
+                        x += 1;
+                    }
+                    let mut y = -1;
+                    let mut x = 1;
+                    loop {
+                        if !self.add_move(pos, x, y, &mut result, func) {
+                            break;
+                        }
+                        y -= 1;
+                        x += 1;
+                    }
+                }
+                ContrastingChessPiece::Bear => {
+                    let func = |piece: RawSquare<Self::PieceType, Self::ColorType>| match piece.0 {
+                        Some(piece) => AddMoveResult::AddMoveStopIterating,
+                        None => AddMoveResult::AddMoveKeepIterating,
+                    };
+                    let mut y = -1;
+                    let mut x = -1;
+                    loop {
+                        if !self.add_move(pos, x, y, &mut result, func) || x < -4 {
+                            break;
+                        }
+                        y -= 1;
+                        x -= 1;
+                    }
+                    let mut y = 1;
+                    let mut x = -1;
+                    loop {
+                        if !self.add_move(pos, x, y, &mut result, func) || x < -4 {
+                            break;
+                        }
+                        y += 1;
+                        x -= 1;
+                    }
+                    let mut y = 1;
+                    let mut x = 1;
+                    loop {
+                        if !self.add_move(pos, x, y, &mut result, func) || x > 4 {
+                            break;
+                        }
+                        y += 1;
+                        x += 1;
+                    }
+                    let mut y = -1;
+                    let mut x = 1;
+                    loop {
+                        if !self.add_move(pos, x, y, &mut result, func) || x > 4 {
+                            break;
+                        }
+                        y -= 1;
+                        x += 1;
+                    }
+                }
+                ContrastingChessPiece::Horse => {}
+                ContrastingChessPiece::Dragon => {}
+                ContrastingChessPiece::Moose => {}
+                ContrastingChessPiece::Weasel => {
+                    let forward_direction = if piece.color == DefaultColorScheme::While {
+                        1
+                    } else {
+                        -1
+                    };
+                    let forward = |piece: RawSquare<Self::PieceType, Self::ColorType>| match piece.0
+                    {
+                        Some(_piece) => AddMoveResult::AddMoveStopIterating,
+                        None => AddMoveResult::AddMoveStopIterating,
+                    };
+
+                    self.add_move(pos, 0, forward_direction, &mut result, forward);
+                }
+            },
+            None => {}
+        }
 
         result
     }
@@ -221,7 +512,7 @@ impl GenericRank<ContrastingChessBoard> for ContrastingChessRank {
             ContrastingChessRank::R7 => 6,
             ContrastingChessRank::R8 => 7,
             ContrastingChessRank::R9 => 8,
-            ContrastingChessRank::R10 => 10,
+            ContrastingChessRank::R10 => 9,
         }
     }
 
@@ -235,9 +526,12 @@ impl GenericRank<ContrastingChessBoard> for ContrastingChessRank {
             5 => ContrastingChessRank::R6,
             6 => ContrastingChessRank::R7,
             7 => ContrastingChessRank::R8,
-            9 => ContrastingChessRank::R9,
-            10 => ContrastingChessRank::R10,
-            _ => panic!(),
+            8 => ContrastingChessRank::R9,
+            9 => ContrastingChessRank::R10,
+            _ => {
+                println!("Got bad rank {}", input);
+                panic!();
+            }
         }
     }
 }
