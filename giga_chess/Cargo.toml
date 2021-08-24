@@ -1,0 +1,8 @@
+[package]
+name = "giga_chess"
+version = "0.1.0"
+edition = "2018"
+description = "Shows moves on the board and allows the playing of games"
+
+[dependencies]
+giga_core = { path = "../core" }
